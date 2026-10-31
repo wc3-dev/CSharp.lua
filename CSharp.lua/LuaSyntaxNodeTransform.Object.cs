@@ -1666,6 +1666,16 @@ namespace CSharpLua {
       return new LuaInvocationExpressionSyntax(LuaIdentifierNameSyntax.Is, leftName, type);
     }
 
+    // A type's name with no variable after it reads to the parser as a constant: case Box when x:, Box =>, Box or Other, { Inner: Box }.
+    private bool IsTypeName(ConstantPatternSyntax pattern) {
+      return semanticModel_.GetOperation(pattern) is ITypePatternOperation;
+    }
+
+    // not binds tighter than ~=, so the nil check of a value already of the type needs parentheses: not (b ~= nil).
+    private static LuaExpressionSyntax BuildNotIsExpression(LuaExpressionSyntax isExpression) {
+      return isExpression is LuaBinaryExpressionSyntax ? isExpression.Parenthesized().Not() : isExpression.Not();
+    }
+
     private LuaExpressionSyntax BuildIsConstantExpression(LuaExpressionSyntax left, CSharpSyntaxNode right) {
       var constValue = semanticModel_.GetConstantValue(right);
       return BuildIsConstantExpression(left, right, constValue);
@@ -1693,6 +1703,9 @@ namespace CSharpLua {
         }
         case SyntaxKind.ConstantPattern: {
           var constantPattern = (ConstantPatternSyntax)pattern;
+          if (IsTypeName(constantPattern)) {
+            return BuildIsPatternExpression(GetPatternInputType(pattern), constantPattern.Expression, targetExpression);
+          }
           return BuildIsConstantExpression(targetExpression, constantPattern.Expression);
         }
         case SyntaxKind.DeclarationPattern: {
@@ -1714,14 +1727,14 @@ namespace CSharpLua {
             case SyntaxKind.TypePattern: {
               var typePattern = (TypePatternSyntax)notPattern.Pattern;
               var expression = BuildIsPatternExpression(targetNode, typePattern.Type, targetExpression);
-              return expression.Not();
+              return BuildNotIsExpression(expression);
             }
             case SyntaxKind.DeclarationPattern: {
               var declarationPattern = (DeclarationPatternSyntax)notPattern.Pattern;
               var name = declarationPattern.Designation.Accept<LuaIdentifierNameSyntax>(this);
               CurBlock.AddStatement(new LuaLocalVariableDeclaratorSyntax(name, targetExpression));
               var expression = BuildIsPatternExpression(targetNode, declarationPattern.Type, name);
-              return expression.Not();
+              return BuildNotIsExpression(expression);
             }
             case SyntaxKind.RecursivePattern: { 
               var recursivePattern = (RecursivePatternSyntax)notPattern.Pattern;
@@ -1731,10 +1744,9 @@ namespace CSharpLua {
             }
             case SyntaxKind.ConstantPattern: {
               var constantPattern = (ConstantPatternSyntax)notPattern.Pattern;
-              var symbol = semanticModel_.GetSymbolInfo(constantPattern.Expression).Symbol;
-              if (symbol != null && symbol.Kind == SymbolKind.NamedType) {
-                var expression = BuildIsPatternExpression(targetNode, constantPattern.Expression, targetExpression);
-                return expression.Not();
+              if (IsTypeName(constantPattern)) {
+                var expression = BuildIsPatternExpression(GetPatternInputType(constantPattern), constantPattern.Expression, targetExpression);
+                return BuildNotIsExpression(expression);
               }
               break;
             }
@@ -1940,6 +1952,9 @@ namespace CSharpLua {
     private LuaExpressionSyntax BuildSubpatternExpression(LuaExpressionSyntax target, PatternSyntax pattern) {
       switch (pattern) {
         case ConstantPatternSyntax constantPattern: {
+          if (IsTypeName(constantPattern)) {
+            return BuildIsPatternExpression(GetPatternInputType(pattern), constantPattern.Expression, target);
+          }
           return target.EqualsEquals(constantPattern.AcceptExpression(this));
         }
         case RelationalPatternSyntax relationalPattern: {
