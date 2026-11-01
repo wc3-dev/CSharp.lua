@@ -19,20 +19,20 @@
     <IncludeSymbols>true</IncludeSymbols>
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
 
-    <RepositoryUrl>https://github.com/mdlsvensson/CSharp.lua</RepositoryUrl>
+    <RepositoryUrl>https://github.com/wc3-dev/CSharp.lua</RepositoryUrl>
   </PropertyGroup>
 
   <PropertyGroup>
     <Authors>YANG Huan, Drake53, mdlsvensson</Authors>
 
     <Description>The lua system files for Moonwell's fork of Csharp.lua.</Description>
-    <PackageProjectUrl>https://github.com/mdlsvensson/CSharp.lua/tree/moonwell-package/CSharp.lua.CoreSystem</PackageProjectUrl>
+    <PackageProjectUrl>https://github.com/wc3-dev/CSharp.lua/tree/moonwell-package/CSharp.lua.CoreSystem</PackageProjectUrl>
     <PackageTags>csharp lua compiler transpiler warcraft3 warcraft-iii</PackageTags>
     <PackageReleaseNotes></PackageReleaseNotes>
 
     <PackageId>Moonwell.CSharpLua.CoreSystem</PackageId>
-    <Version>2.0.3-moonwell.5</Version>
-    <FileVersion>2.0.3.5</FileVersion>
+    <Version>2.0.3-moonwell.6</Version>
+    <FileVersion>2.0.3.6</FileVersion>
     <AssemblyVersion>2.0</AssemblyVersion>
   </PropertyGroup>
 

@@ -1,5 +1,5 @@
 # Publishes the fork's packages, Moonwell.CSharpLua and Moonwell.CSharpLua.CoreSystem, to nuget.org by trusted publishing,
-# as War3Net publishes its own: nuget.org trusts this workflow file (policy owner mdlsvensson, repository CSharp.lua, workflow
+# as War3Net publishes its own: nuget.org trusts this workflow file (policy owner wc3-dev, repository CSharp.lua, workflow
 # file publish.yml) and gives it a key for one hour, so no API key is stored. Run by hand, from moonwell-package only. The
 # versions are the ones in CSharp.lua/CSharp.lua.csproj and CSharp.lua.CoreSystem/CSharp.lua.CoreSystem.csproj; a version
 # already on nuget.org is skipped.
