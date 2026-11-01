@@ -961,12 +961,15 @@ end
 
 function System.usingX(f, ...)
   local ok, status, ret = xpcall(f, xpcallErr, ...)
-  for i = 1, select("#", ...) do
+  for i = select("#", ...), 1, -1 do
     local t = select(i, ...)
     if t ~= nil then
       local dispose = t.Dispose
       if dispose ~= nil then
-        dispose(t)
+        local disposed, e = xpcall(dispose, xpcallErr, t)
+        if not disposed then
+          ok, status = false, e
+        end
       end
     end
   end
