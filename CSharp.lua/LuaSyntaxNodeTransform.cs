@@ -3964,7 +3964,7 @@ namespace CSharpLua {
     public override LuaSyntaxNode VisitCaseSwitchLabel(CaseSwitchLabelSyntax node) {
       var left = switches_.Peek().Temp;
       var symbol = semanticModel_.GetSymbolInfo(node.Value).Symbol;
-      if (symbol?.Kind == SymbolKind.NamedType) {
+      if (symbol is ITypeSymbol) {
         var switchStatement = (SwitchStatementSyntax)FindParent(node, SyntaxKind.SwitchStatement);
         return BuildTypePattern(node.Value, left, switchStatement.Expression, null); 
       } else {
@@ -4042,6 +4042,11 @@ namespace CSharpLua {
           return BuildTypePattern(typePattern.Type, left, switchStatement.Expression, node.WhenClause);
         }
         case SyntaxKind.ConstantPattern: {
+          var constantPattern = (ConstantPatternSyntax)node.Pattern;
+          if (IsTypeName(constantPattern)) {
+            var switchStatement = (SwitchStatementSyntax)FindParent(node, SyntaxKind.SwitchStatement);
+            return BuildTypePattern(constantPattern.Expression, left, switchStatement.Expression, node.WhenClause);
+          }
           var patternExpression = node.Pattern.AcceptExpression(this);
           var expression = left.EqualsEquals(patternExpression);
           return BuildSwitchLabelWhenClause(expression, node.WhenClause);
@@ -4241,9 +4246,21 @@ namespace CSharpLua {
       foreach (var arm in node.Arms) {
         switch (arm.Pattern.Kind()) {
           case SyntaxKind.ConstantPattern: {
+            var constantPattern = (ConstantPatternSyntax)arm.Pattern;
+            if (IsTypeName(constantPattern)) {
+              var typeCondition = BuildTypePattern(constantPattern.Expression, governingIdentifier, node.GoverningExpression, arm.WhenClause);
+              FillSwitchPatternSyntax(ref ifStatement, typeCondition, null, result, arm.Expression);
+              break;
+            }
             var patternExpression = arm.Pattern.AcceptExpression(this);
             var condition = governingIdentifier.EqualsEquals(patternExpression);
             FillSwitchPatternSyntax(ref ifStatement, condition, arm.WhenClause, result, arm.Expression);
+            break;
+          }
+          case SyntaxKind.TypePattern: {
+            var typePattern = (TypePatternSyntax)arm.Pattern;
+            var condition = BuildTypePattern(typePattern.Type, governingIdentifier, node.GoverningExpression, arm.WhenClause);
+            FillSwitchPatternSyntax(ref ifStatement, condition, null, result, arm.Expression);
             break;
           }
           case SyntaxKind.RecursivePattern: {
