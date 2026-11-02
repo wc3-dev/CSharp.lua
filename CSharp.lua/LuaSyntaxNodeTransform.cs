@@ -4278,6 +4278,11 @@ namespace CSharpLua {
             FillSwitchPatternSyntax(ref ifStatement, condition, null, result, arm.Expression);
             break;
           }
+          case SyntaxKind.VarPattern when ((VarPatternSyntax)arm.Pattern).Designation is SingleVariableDesignationSyntax designation && governingIdentifier != null: {
+            AddLocalVariableMapping(governingIdentifier, designation);
+            FillSwitchPatternSyntax(ref ifStatement, null, arm.WhenClause, result, arm.Expression);
+            break;
+          }
           case SyntaxKind.VarPattern: {
             var varPatternSyntax = (VarPatternSyntax)arm.Pattern;
             var parenthesizedVariable = (ParenthesizedVariableDesignationSyntax)varPatternSyntax.Designation;
@@ -4294,6 +4299,10 @@ namespace CSharpLua {
             break;
           }
           case SyntaxKind.OrPattern:
+          case SyntaxKind.AndPattern:
+          case SyntaxKind.NotPattern:
+          case SyntaxKind.RelationalPattern:
+          case SyntaxKind.ParenthesizedPattern:
           case SyntaxKind.ListPattern: {
             var condition = BuildPatternExpression(governingIdentifier, arm.Pattern, node.GoverningExpression);
             FillSwitchPatternSyntax(ref ifStatement, condition, arm.WhenClause, result, arm.Expression);
