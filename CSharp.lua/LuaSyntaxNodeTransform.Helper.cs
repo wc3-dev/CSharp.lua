@@ -1268,7 +1268,7 @@ namespace CSharpLua {
       return parameter;
     }
 
-    private void CheckValueTypeClone(ITypeSymbol typeSymbol, IdentifierNameSyntax node, ref LuaExpressionSyntax expression, bool isPropertyField = false) {
+    private void CheckValueTypeClone(ITypeSymbol typeSymbol, ExpressionSyntax node, ref LuaExpressionSyntax expression, bool isPropertyField = false) {
       if (typeSymbol.IsCustomValueType() && !generator_.IsReadOnlyStruct(typeSymbol) && !typeSymbol.IsNullableWithBasicElementType() && expression is not LuaPropertyTemplateExpressionSyntax) {
         bool need = false;
         if (isPropertyField) {

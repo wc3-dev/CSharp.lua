@@ -1254,6 +1254,7 @@ namespace CSharpLua {
 
     public override LuaSyntaxNode VisitElementAccessExpression(ElementAccessExpressionSyntax node) {
       var symbol = semanticModel_.GetSymbolInfo(node).Symbol;
+      LuaExpressionSyntax expression;
       if (symbol?.Kind == SymbolKind.Method) {
         var typeSymbol = semanticModel_.GetTypeInfo(node.Expression).Type;
         IPropertySymbol propertySymbol;
@@ -1262,10 +1263,17 @@ namespace CSharpLua {
         } else {
           propertySymbol = (IPropertySymbol)typeSymbol.GetMembers().First(i => i.IsIndexerProperty());
         }
-        return InternalVisitElementAccessExpression(propertySymbol, node);
+        expression = InternalVisitElementAccessExpression(propertySymbol, node);
+      } else {
+        expression = InternalVisitElementAccessExpression((IPropertySymbol)symbol, node);
       }
 
-      return InternalVisitElementAccessExpression((IPropertySymbol)symbol, node);
+      // A struct read from an element is copied where one read from a variable is.
+      var elementType = semanticModel_.GetTypeInfo(node).Type;
+      if (elementType != null) {
+        CheckValueTypeClone(elementType, node, ref expression);
+      }
+      return expression;
     }
 
     private LuaExpressionSyntax VisitFormatInterpolatedStringExpression(InterpolatedStringExpressionSyntax node) {
