@@ -2156,10 +2156,10 @@ namespace CSharpLua {
         var kind = node.Kind();
 
         if (rightExpression is AssignmentExpressionSyntax assignmentRight) {
-          assignments.Add(BuildLuaAssignmentExpression(node, leftExpression, assignmentRight.Left, kind));
+          assignments.Add(CheckNarrowedAssignment(kind, leftExpression, BuildLuaAssignmentExpression(node, leftExpression, assignmentRight.Left, kind)));
           node = assignmentRight;
         } else {
-          assignments.Add(BuildLuaAssignmentExpression(node, leftExpression, rightExpression, kind));
+          assignments.Add(CheckNarrowedAssignment(kind, leftExpression, BuildLuaAssignmentExpression(node, leftExpression, rightExpression, kind)));
           break;
         }
       }
@@ -5079,6 +5079,38 @@ namespace CSharpLua {
         if (methodSymbol != null) {
           expression = BuildConversionExpression(methodSymbol, expression);
         }
+      } else if (!isAddOrAssignment && IsNarrowedIntegerType(symbol)) {
+        expression = GetCastToNumberExpression(expression, symbol, false);
+      }
+    }
+
+    // C# makes the value of ++, -- and a compound assignment the variable's type, so a byte, sbyte, short or ushort wraps,
+    // where a Lua number keeps the whole value.
+    private static bool IsNarrowedIntegerType(ITypeSymbol type) {
+      return type?.SpecialType is SpecialType.System_SByte or SpecialType.System_Byte or SpecialType.System_Int16 or SpecialType.System_UInt16;
+    }
+
+    private LuaExpressionSyntax CheckNarrowedAssignment(SyntaxKind kind, ExpressionSyntax leftNode, LuaExpressionSyntax assignment) {
+      if (kind is not (SyntaxKind.AddAssignmentExpression or SyntaxKind.SubtractAssignmentExpression or SyntaxKind.MultiplyAssignmentExpression
+        or SyntaxKind.DivideAssignmentExpression or SyntaxKind.LeftShiftAssignmentExpression)) {
+        return assignment;
+      }
+
+      var type = semanticModel_.GetTypeInfo(leftNode).Type;
+      if (!IsNarrowedIntegerType(type)) {
+        return assignment;
+      }
+
+      switch (assignment) {
+        case LuaAssignmentExpressionSyntax simple:
+          return simple.Left.Assignment(GetCastToNumberExpression(simple.Right, type, false));
+        case LuaPropertyAdapterExpressionSyntax property: {
+          var arguments = property.ArgumentList.Arguments;
+          arguments[arguments.Count - 1] = GetCastToNumberExpression(arguments[arguments.Count - 1], type, false);
+          return property;
+        }
+        default:
+          return assignment;
       }
     }
 
