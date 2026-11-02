@@ -1,0 +1,23 @@
+# T1
+a1c2.5True 10
+# T2
+h heLLo
+# T3
+aRNRNb
+# T4
+aXc c 3
+aX
+0
+# T5
+0,1,2,3,4
+# T6
+1-2.5[3]
+# T7
+bcxyzzz
+# T8
+bcd True 3
+# T9
+1,2,3
+# T10
+True
+x

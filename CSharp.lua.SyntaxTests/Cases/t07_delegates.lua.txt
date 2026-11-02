@@ -1,0 +1,22 @@
+# T1
+3 13 12
+# T2
+12
+# T3
+2
+1
+# T4
+ab
+# T5
+7
+# T6
+True
+
+# T7
+#! T7 attempt to index a function value (local 'o')
+T7 EXC
+# T8
+True
+# T9
+True
+True

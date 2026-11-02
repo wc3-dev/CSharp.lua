@@ -1,0 +1,10 @@
+# T1
+#! T1 attempt to call a nil value (field 'op_Addition')
+T1 EXC
+# T2
+#! T2 attempt to index a nil value
+T2 EXC
+# T3
+
+# T4
+K

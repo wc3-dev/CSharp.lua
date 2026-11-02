@@ -1,0 +1,23 @@
+whole file: REFUSED Case.cs(10,22): error CS0227: Unsafe code may only appear if compiling with /unsafe
+# T1
+locked
+# T2
+2147483648
+# T3
+2147483648
+# T4
+256
+# T5
+ovf3
+# T6
+REFUSED Case.cs(5,22): error CS0227: Unsafe code may only appear if compiling with /unsafe
+# T7
+259
+# T8
+#! T8 attempt to call a nil value (field 'Lock')
+T8 EXC
+# T9
+#! T9 attempt to index a nil value (field 'Monitor')
+T9 EXC
+# T10
+-1

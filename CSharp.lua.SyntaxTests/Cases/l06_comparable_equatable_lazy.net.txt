@@ -1,0 +1,38 @@
+# T1
+1.2 1.5 2.1
+# T2
+True False True
+# T3
+2
+x
+# T4
+1
+# T5
+a,bb,ccc
+a,bb,ccc
+# T6
+1.0 3.0 1.0
+# T7
+False 42 42 1 True
+# T8
+True 5 5 5 True 5
+False 9 True True []
+# T9
+4
+True
+Int32
+# T10
+6True 2 n1
+# T11
+-1 True
+# T12
+1.0
+# T13
+1
+1
+True
+# T14
+True 1
+True
+# T15
+1

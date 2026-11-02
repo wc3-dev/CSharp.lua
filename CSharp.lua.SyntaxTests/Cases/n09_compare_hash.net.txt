@@ -1,0 +1,16 @@
+# T1
+-1 0 -1 1 1 1
+# T2
+5 6357089 1 True 5 True
+# T3
+True True False False True
+# T4
+True
+# T5
+NaN -0 True
+# T6
+True True True False True
+# T7
+-1 -1 31 -1
+# T8
+-1 True

@@ -1,0 +1,12 @@
+# T1
+sq:4
+# T2
+shape:3
+# T3
+sealed
+# T4
+sq hidden
+# T5
+sq,shape,
+# T6
+True False True

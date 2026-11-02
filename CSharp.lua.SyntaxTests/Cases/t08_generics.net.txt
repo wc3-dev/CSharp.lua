@@ -1,0 +1,28 @@
+# T1
+Box(1) Box(s) 2 1
+# T2
+5 x 2
+# T3
+21
+# T4
+9 b
+# T5
+0
+# T6
+Int32 String List`1
+# T7
+1z
+# T8
+True
+# T9
+Box`1 Box`1
+# T10
+True False
+# T11
+2
+# T12
+0  0 False
+# T13
+True False True
+# T14
+7 z 2.5

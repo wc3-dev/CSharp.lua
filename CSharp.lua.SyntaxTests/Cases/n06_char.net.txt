@@ -1,0 +1,23 @@
+# T1
+b 98 c 99
+# T2
+True True True False True False True
+# T3
+A q Z 7 7
+# T4
+xx x True True
+# T5
+65 a c 195 b
+# T6
+10
+7
+# T7
+-1 True z 10 9 92 39
+# T8
+ab 2 xxx
+# T9
+is A
+# T10
+olleh
+# T11
+True True True True True

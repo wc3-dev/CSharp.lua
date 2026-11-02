@@ -1,0 +1,34 @@
+# T1
+created
+# T2
+B>A
+# T3
+hook 1
+ran
+# T4
+True True True
+# T5
+3ks
+# T6
+2
+# T7
+True
+5
+# T8
+2 1
+# T9
+0 0
+# T10
+0 0
+# T11
+4
+# T12
+B>A
+# T13
+nested
+# T14
+Int32:1;String:s;Single:2.5;
+# T15
+0
+True
+True

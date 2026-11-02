@@ -1,0 +1,49 @@
+whole file: REFUSED SourceLocation(Case.cs@12:67)"(1, 2)": a positional pattern on a value that can be null is not supported here; match its properties ({ X: 1 }) or use a switch statement, please refactor your code.
+# T1
+True
+False
+True
+# T2
+True
+False
+# T3
+True
+True
+False
+True
+# T4
+#! T4 attempt to call a nil value (method 'Slice')
+T4 EXC
+# T5
+True True True True
+# T6
+one char s
+not int
+# T7
+REFUSED SourceLocation(Case.cs@6:67)"(1, 2)": a positional pattern on a value that can be null is not supported here; match its properties ({ X: 1 }) or use a switch statement, please refactor your code.
+# T8
+True
+True
+True
+# T9
+True
+False
+# T10
+True
+True
+True
+# T11
+int,string,float,null,P,int,bool,
+# T12
+gt2
+# T13
+True
+True
+# T14
+True
+True
+# T15
+True
+False
+3
+True

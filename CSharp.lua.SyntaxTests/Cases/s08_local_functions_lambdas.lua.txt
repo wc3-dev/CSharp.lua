@@ -1,0 +1,44 @@
+# T1
+3
+# T2
+2
+# T3
+120
+# T4
+333
+# T5
+012
+# T6
+012
+# T7
+25
+# T8
+2 3
+# T9
+10
+6
+# T11
+5
+# T12
+x!
+# T13
+3,2,1
+# T14
+12
+# T15
+3 1
+# T16
+3
+# T17
+#! T17 attempt to get length of a number value (local 'xs')
+T17 EXC
+# T18
+8
+# T19
+6
+# T20
+2
+# T21
+True
+# T22
+5

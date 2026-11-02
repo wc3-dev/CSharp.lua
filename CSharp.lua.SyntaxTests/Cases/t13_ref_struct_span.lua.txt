@@ -1,0 +1,19 @@
+# T1
+16
+# T2
+20 2
+# T3
+2 2
+# T4
+#! T4 attempt to call a nil value (method 'Fill')
+T4 EXC
+# T5
+3 4 0
+# T6
+5 e
+# T7
+#! T7 attempt to call a nil value (field 'Sort')
+T7 EXC
+# T8
+#! T8 attempt to call a nil value (method 'ToArray')
+T8 EXC

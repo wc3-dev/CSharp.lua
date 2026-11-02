@@ -1,0 +1,13 @@
+# T1
+A(int,int)
+A(int)
+A()
+1 2
+# T2
+A(int,int)
+A(int)
+B() 75
+5
+# T3
+P ctor q
+Q ctor

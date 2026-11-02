@@ -1,0 +1,44 @@
+whole file: CRASH NullReferenceException: Object reference not set to an instance of an object.
+# T1
+P X WriteLine T1
+# T2
+Int32 P String[]
+# T3
+0  False True True
+# T4
+10ks
+# T5
+big
+a
+# T6
+1 7 6 -6 20 2
+# T7
+False True True False False True
+# T8
+7
+# T9
+7 12
+5 2
+# T10
+14
+# T11
+nope
+# T12
+4
+# T13
+CRASH NullReferenceException: Object reference not set to an instance of an object.
+# T14
+3x12
+# T15
+#! T15 attempt to perform arithmetic on a table value (local 'a')
+T15 EXC
+# T16
+4 1 2
+# T17
+6
+# T18
+5ks
+# T19
+1
+# T20
+2147483648

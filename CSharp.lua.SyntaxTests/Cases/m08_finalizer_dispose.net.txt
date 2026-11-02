@@ -1,0 +1,23 @@
+# T1
+open a
+body
+close a
+after
+# T2
+open b
+open c
+body2
+close c
+close b
+# T3
+open d
+close d
+caught x
+# T4
+open e
+open f
+nest
+close f
+close e
+# T5
+null ok

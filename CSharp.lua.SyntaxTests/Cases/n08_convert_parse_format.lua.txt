@@ -1,0 +1,32 @@
+# T1
+49 65
+# T2
+11111111 ff 377 255 5
+# T3
+1.5 2.5 True 12 B 200
+# T4
+#! T4 attempt to call a nil value (field 'ToHexString')
+T4 EXC
+# T5
+True 7 False False False True5 False0
+# T6
+FF 00ff 005 1234567 0.5 12 -05 5
+# T7
+1.5 100 1e-005 123456789 0.1 1e+020 0.33333333333333
+# T8
+#! T8 Invalid format.
+T8 EXC
+# T9
+True False True False 1
+# T10
+True 123456789012 4000000000 255 -128 -5
+# T11
+fmt
+ovf
+ovf2
+# T12
+3.14 1.234568E+004 0.0001 2.5 1234567.891
+# T13
+61 10 3.7 2.5 0.05 1000000
+# T14
+2147483647 -2147483648 -9223372036854775808 -1 -0 1e+025

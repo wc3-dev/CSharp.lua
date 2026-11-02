@@ -1,0 +1,16 @@
+# T1
+start
+A.X
+A.cctor
+B.Y
+B.cctor
+B.J
+A.I
+A.ctor
+B.ctor
+end
+# T2
+before
+compute
+42
+42

@@ -1,0 +1,20 @@
+# A
+4 27
+# B
+3 0
+# C
+2 27
+# D
+15 tab	here\ "q" A
+# E
+raw "quoted" \n text
+# F
+x1%d2%s
+# G
+2
+# I
+4 CAFÉ
+# J
+233 1
+# K
+a 1 a

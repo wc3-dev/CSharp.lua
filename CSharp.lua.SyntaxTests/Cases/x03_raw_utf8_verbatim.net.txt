@@ -1,0 +1,25 @@
+# T1
+C:\path\na"b
+# T2
+line1
+  line2
+# T3
+a "quoted" word
+# T4
+val=5 (not)
+# T5
+{ "k": 2 }
+# T6
+3 97
+# T7
+10
+# T8
+7
+# T9
+8tab	nl\n
+# T10
+q"q'a'"
+# T11
+1 0 3 2
+# T12
+ünï

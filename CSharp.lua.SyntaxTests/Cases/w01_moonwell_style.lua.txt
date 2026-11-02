@@ -1,0 +1,28 @@
+whole file: LUA ERROR attempt to call a nil value (upvalue 'DictInt32Handle')
+# T1
+hero hit 10
+pal died
+hero hit 1
+# T2
+LUA ERROR attempt to call a nil value (upvalue 'DictInt32Handle')
+# T3
+2 1 True 1
+# T4
+2 True
+# T5
+q True
+# T6
+0
+# T7
+True 1 Hero True Unit:z
+# T8
+1 False
+# T9
+False True True
+# T10
+a,b
+# T11
+cb w
+cb w
+# T12
+3

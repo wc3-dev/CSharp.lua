@@ -1,0 +1,17 @@
+# T1
+-1 0 -1 1 1 1
+# T2
+5 97 1 True 5 True
+# T3
+True True True True True
+# T4
+#! T4 attempt to index a nil value (field 'HashCode')
+T4 EXC
+# T5
+nan 0 True
+# T6
+True True True False True
+# T7
+1 -1 1 1
+# T8
+-1 True

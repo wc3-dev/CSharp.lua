@@ -1,0 +1,27 @@
+whole file: CRASH NotImplementedException: The method or operation is not implemented.
+# T1
+onetwo-threeother
+# T2
+AB?
+# T3
+CRASH NotImplementedException: The method or operation is not implemented.
+# T4
+bigintint2strznullobj
+# T5
+alowerx
+# T6
+2d
+# T7
+5
+# T8
+match
+# T9
+null
+# T10
+02
+# T11
+week
+# T12
+CRASH InvalidCastException: Unable to cast object of type 'Microsoft.CodeAnalysis.CSharp.Syntax.SingleVariableDesignationSyntax' to type 'Microsoft.CodeAnalysis.CSharp.Syntax.ParenthesizedVariableDesignationSyntax'.
+# T13
+nomatch

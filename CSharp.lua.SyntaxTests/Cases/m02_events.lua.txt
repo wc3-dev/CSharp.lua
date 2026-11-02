@@ -1,0 +1,13 @@
+# T1
+got 5
+also 5
+# T2
+h1
+done
+# T3
+True
+# T4
+static
+# T5
+add
+remove

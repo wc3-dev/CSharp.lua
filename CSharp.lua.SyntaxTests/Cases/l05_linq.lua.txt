@@ -1,0 +1,67 @@
+# T1
+9,16,25
+# T2
+1,2,3 3,2,1 1,2,3
+# T3
+d,b,a,c
+# T4
+10 2.5 1 4 4 2 20
+# T5
+True False True True 1 3 2 0 3 2 0
+# T6
+ioe
+2 3
+# T7
+#! T7 attempt to call a nil value (field 'TakeLast')
+T7 EXC
+# T8
+x:2:ac y:2:bd 
+# T9
+1,2,3 1,2,3,9 2,3 1,3
+# T10
+#! T10 Value cannot be null. (Parameter 'resultSelector')
+T10 EXC
+# T11
+0,2,6 1,1,2,2,3,3
+# T12
+#! T12 attempt to call a nil value (field 'Empty')
+T12 EXC
+# T13
+6 16 123
+# T14
+#! T14 attempt to call a nil value (field 'ToHashSet')
+T14 EXC
+# T15
+40 20 c b 110 27.5
+# T16
+built
+s1s2f2s3f3
+# T17
+3
+# T18
+3,5,8 8,5,3 8,3,5
+# T19
+c40,a30
+# T20
+x2y2
+# T21
+2
+2,3,4,6
+# T22
+apple 5 bob,cat,apple
+# T23
+4 2 2.5
+4 2
+3
+# T24
+#! T24 attempt to call a nil value (field 'Chunk')
+T24 EXC
+# T25
+2 2 2 2 3
+# T26
+#! T26 NoElements
+T26 EXC
+# T27
+1-2-3 6
+# T28
+2

@@ -1,0 +1,1 @@
+LUA ERROR attempt to index a number value (local 'v')

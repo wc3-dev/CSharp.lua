@@ -1,0 +1,26 @@
+# T1
+a1c2.5True 10
+# T2
+#! T2 attempt to index a nil value
+T2 EXC
+# T3
+aNNb
+# T4
+aXc c 3
+aX
+0
+# T5
+0,1,2,3,4
+# T6
+1-2.5[3]
+# T7
+bcSystem.Char[]zzz
+# T8
+#! T8 attempt to call a nil value (method 'Equals')
+T8 EXC
+# T9
+#! T9 attempt to call a nil value (method 'AppendJoin')
+T9 EXC
+# T10
+False
+x

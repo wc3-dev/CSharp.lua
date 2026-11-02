@@ -1,0 +1,65 @@
+whole file: NO LOAD syntax error near ','
+# T1
+3 05 0,5,0
+# T2
+1,2,3
+3,2,1
+1 -1
+# T3
+6 2 3 7 2
+# T4
+3 2 0 3
+# T5
+5
+# T6
+0,0,7,7,7
+# T7
+2,3,3,4
+1
+# T8
+True 2 2 True 1,3
+# T9
+True 2
+False
+0
+0
+# T10
+#! T10 Specified argument was out of the range of valid values. (Parameter 'index')
+T10 EXC
+# T11
+9 True True False
+# T12
+9
+# T13
+15 5
+3 3
+# T14
+abc
+cba
+# T15
+#! T15 attempt to compare table with number
+T15 EXC
+# T16
+True
+4
+# T17
+2 2
+5
+# T18
+True 1 3 3 1 2 3
+# T19
+1 2
+# T20
+1.5 3
+5
+# T21
+258 255
+# T22
+2,3,4 3
+# T23
+NO LOAD syntax error near ','
+# T24
+0
+0 0
+# T25
+3 3 3 2 1

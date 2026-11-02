@@ -1,0 +1,72 @@
+# T1
+12 HELLO, WORLD hello, world World Hello o
+# T2
+4 7 8 8 -1 0
+# T3
+#! T3 attempt to get length of a number value (local 'prefix')
+T3 EXC
+# T4
+4 a|b||c
+3
+# T5
+pad|pad |  pad|a|axx
+# T6
+   abc|abc...|000abc|abcdef
+# T7
+a+b+c bbbbbb aXc abc a ac abc
+# T8
+a, b 1-2-3 xy abc pq
+# T9
+True True True False True
+# T10
+False
+# T11
+-1 1 1 -1 -1
+# T12
+#! T12 attempt to call a nil value (method 'Clone')
+T12 EXC
+# T13
+#! T13 ?
+T13 EXC
+# T14
+xy1c2.5True
+# T15
+#! T15 assertion failed!
+T15 EXC
+# T16
+Hello World
+# T17
+True
+helloHELLO
+# T18
+True 2 1 0 0
+# T19
+aoor
+ioor
+# T20
+#! T20 Specified argument was out of the range of valid values. (Parameter 'startIndex')
+T20 EXC
+# T21
+True True 0 True a
+# T22
+%d %s {0} 100% a\b q"q 5%
+# T23
+ab |x|a,b
+# T24
+b bXc cba
+# T25
+#! T25 attempt to call a nil value (field 'Range')
+T25 EXC
+# T26
+#! T26 attempt to call a nil value (field 'Intern')
+T26 EXC
+# T27
+6 2
+# T28
+ab c file.txt ABC
+# T29
+#! T29 attempt to call a nil value (method 'Normalize')
+T29 EXC
+# T30
+#! T30 attempt to call a nil value (field 'Create')
+T30 EXC
