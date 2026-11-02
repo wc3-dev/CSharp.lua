@@ -4330,27 +4330,54 @@ namespace CSharpLua {
 
 #endregion
 
-    private bool IsParentTryStatement(SyntaxNode node) {
-      bool isTry = false;
-      FindParent(node, i => {
-        var kind = i.Kind();
-        switch (kind) {
-          case SyntaxKind.WhileStatement:
-          case SyntaxKind.DoStatement:
-          case SyntaxKind.ForStatement:
-          case SyntaxKind.ForEachStatement:
-          case SyntaxKind.ForEachVariableStatement:
-          case SyntaxKind.SwitchStatement:
-            return true;
+    private enum LoopExitKind {
+      None,
+      Try,
+      UsingDeclaration,
+    }
 
-          case SyntaxKind.TryStatement:
-          case SyntaxKind.UsingStatement:
-            isTry = true;
-            return true;
+    // The first function between node and the loop or switch a break or continue there leaves: none, the function a try or
+    // a using statement is written into, which is the current one, or the rest of a block after a using declaration, which
+    // becomes a function when its block is done.
+    private static LoopExitKind GetLoopExitKind(SyntaxNode node) {
+      for (var child = node; child.Parent != null; child = child.Parent) {
+        switch (child.Parent) {
+          case WhileStatementSyntax or DoStatementSyntax or ForStatementSyntax or CommonForEachStatementSyntax or SwitchStatementSyntax:
+            return LoopExitKind.None;
+          case TryStatementSyntax or UsingStatementSyntax:
+            return LoopExitKind.Try;
+          case BlockSyntax block when block.Statements.TakeWhile(i => i != child).Any(IsUsingDeclaration):
+            return LoopExitKind.UsingDeclaration;
         }
-        return false;
-      });
-      return isTry;
+      }
+      return LoopExitKind.None;
+    }
+
+    private static bool IsUsingDeclaration(StatementSyntax statement) {
+      return statement is LocalDeclarationStatementSyntax declaration && declaration.UsingKeyword.IsKeyword();
+    }
+
+    // Whether a break or continue at node, or one passed on there, is inside a function within its loop: then it leaves
+    // that function with false, and the function's caller passes it on.
+    private bool IsLoopExitInFunction(SyntaxNode node, bool isContinue) {
+      switch (GetLoopExitKind(node)) {
+        case LoopExitKind.Try: {
+          var check = (LuaCheckLoopControlExpressionSyntax)CurFunction;
+          if (isContinue) {
+            check.HasContinue = true;
+          } else {
+            check.HasBreak = true;
+          }
+          return true;
+        }
+        case LoopExitKind.UsingDeclaration: {
+          FindUsingDeclarationsBlock().HasUsingLoopExit = true;
+          return true;
+        }
+        default: {
+          return false;
+        }
+      }
     }
 
     private bool CheckBreakLastBlockStatement(BreakStatementSyntax node) {
@@ -4385,9 +4412,7 @@ namespace CSharpLua {
     }
 
     public override LuaSyntaxNode VisitBreakStatement(BreakStatementSyntax node) {
-      if (IsParentTryStatement(node)) {
-        var check = (LuaCheckLoopControlExpressionSyntax)CurFunction;
-        check.HasBreak = true;
+      if (IsLoopExitInFunction(node, false)) {
         return new LuaReturnStatementSyntax(LuaIdentifierLiteralExpressionSyntax.False);
       }
 
@@ -5329,14 +5354,9 @@ namespace CSharpLua {
       return BuildContinueAdapter(node);
     }
 
-    // A continue at the place of node: continue = true, then a break, or a return false out of a try's function.
+    // A continue at the place of node: continue = true, then a break, or a return false out of a try's or a using's function.
     private LuaContinueAdapterStatementSyntax BuildContinueAdapter(SyntaxNode node) {
-      bool isWithinTry = IsParentTryStatement(node);
-      if (isWithinTry) {
-        var check = (LuaCheckLoopControlExpressionSyntax)CurFunction;
-        check.HasContinue = true;
-      }
-      return new LuaContinueAdapterStatementSyntax(isWithinTry);
+      return new LuaContinueAdapterStatementSyntax(IsLoopExitInFunction(node, true));
     }
 
     private static bool IsLastBreakStatement(LuaStatementSyntax lastStatement) {
