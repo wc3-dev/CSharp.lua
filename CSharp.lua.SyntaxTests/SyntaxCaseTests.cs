@@ -14,7 +14,8 @@ namespace CSharpLua.SyntaxTests {
   /// ids, such as t02 T3 or a01, are the report's. Each case must print in Lua what its .lua.txt recorded, the forms that are
   /// still wrong included, so that any change shows. Its .net.txt is what it prints on .NET.
   /// When a change is meant to alter what a case prints, record the cases again (CSHARPLUA_RECORD=1 dotnet test) and read
-  /// the diff of the .lua.txt files: each changed test should now print what .NET prints.
+  /// the diff of the .lua.txt files: each changed test should now print what .NET prints. Recording rewrites a .lua.txt
+  /// only for a change the run compares, and writes a .net.txt only for a new case.
   /// </summary>
   [TestClass]
   public class SyntaxCaseTests {
@@ -33,25 +34,31 @@ namespace CSharpLua.SyntaxTests {
       var changes = new ConcurrentBag<string>();
       var names = Directory.GetFiles(Cases, "*.cs").Select(Path.GetFileNameWithoutExtension).OrderBy(name => name, StringComparer.Ordinal);
       Parallel.ForEach(names, name => {
-        var code = File.ReadAllText(Path.Combine(Cases, name + ".cs"));
+        // A checkout may give the files CRLF, and a string literal across lines would keep it.
+        var code = File.ReadAllText(Path.Combine(Cases, name + ".cs")).Replace("\r\n", "\n");
         var lua = LuaRun.Run(code);
         var recordedPath = Path.Combine(Cases, name + ".lua.txt");
         var netPath = Path.Combine(Cases, name + ".net.txt");
-        if (Recording) {
-          File.WriteAllText(recordedPath, lua);
-          File.WriteAllText(netPath, DotNetRun.Run(code));
-          return;
-        }
         if (!File.Exists(recordedPath)) {
-          changes.Add(name + ": not recorded");
-          return;
-        }
-        var recorded = File.ReadAllText(recordedPath).Replace("\r\n", "\n");
-        if (lua != recorded) {
-          var change = Describe(name, recorded, lua, File.Exists(netPath) ? File.ReadAllText(netPath).Replace("\r\n", "\n") : "");
-          if (change.Length > 0) {
-            changes.Add(change);
+          if (Recording) {
+            File.WriteAllText(recordedPath, lua);
+          } else {
+            changes.Add(name + ": not recorded");
           }
+        } else {
+          var recorded = File.ReadAllText(recordedPath).Replace("\r\n", "\n");
+          var change = lua == recorded ? "" : Describe(name, recorded, lua, File.Exists(netPath) ? File.ReadAllText(netPath).Replace("\r\n", "\n") : "");
+          if (change.Length > 0) {
+            if (Recording) {
+              File.WriteAllText(recordedPath, lua);
+            } else {
+              changes.Add(change);
+            }
+          }
+        }
+        // What .NET prints is written once: a finalizer's line, for one, comes when .NET's collector runs.
+        if (Recording && !File.Exists(netPath)) {
+          File.WriteAllText(netPath, DotNetRun.Run(code));
         }
       });
       if (!changes.IsEmpty) {
