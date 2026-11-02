@@ -4145,6 +4145,14 @@ namespace CSharpLua {
       var inputType = governingExpression != null ? semanticModel_.GetTypeInfo(governingExpression).Type : GetPatternInputType(recursivePattern);
       var subpatterns = recursivePattern.PropertyPatternClause?.Subpatterns ?? recursivePattern.PositionalPatternClause.Subpatterns;
       var subpatternExpressions = new List<LuaExpressionSyntax>();
+      bool mayBeNil = governingIdentifier != null && (inputType is not { IsValueType: true } || inputType.IsNullableType());
+      var isExpression = recursivePattern.Type != null ? BuildIsPatternExpression(inputType, recursivePattern.Type, governingIdentifier) : null;
+      var check = isExpression != null && isExpression != LuaIdentifierLiteralExpressionSyntax.True
+        ? isExpression
+        : mayBeNil ? governingIdentifier.NotEquals(LuaIdentifierNameSyntax.Nil) : null;
+      if (check != null) {
+        patternChecks_.Add(check);
+      }
       int subpatternIndex = 0;
       foreach (var subpattern in subpatterns) {
         LuaExpressionSyntax expression = null;
@@ -4162,7 +4170,10 @@ namespace CSharpLua {
           // { A.B: p } is { A: { B: p } }: each member read on the way is checked not to be nil first.
           var checks = new List<LuaExpressionSyntax>();
           var left = BuildExtendedPropertyPatternMember(governingIdentifier, subpattern.ExpressionColon.Expression, checks);
-          checks.Add(BuildSubpatternExpression(left, subpattern.Pattern));
+          patternChecks_.AddRange(checks);
+          var memberExpression = BuildSubpatternExpression(left, subpattern.Pattern);
+          patternChecks_.RemoveRange(patternChecks_.Count - checks.Count, checks.Count);
+          checks.Add(memberExpression);
           expression = checks.Aggregate((x, y) => {
             CheckBinaryParenthesized(ref y);
             return x.And(y);
@@ -4181,15 +4192,17 @@ namespace CSharpLua {
         }
         ++subpatternIndex;
       }
+      if (check != null) {
+        patternChecks_.RemoveAt(patternChecks_.Count - 1);
+      }
       var condition = subpatternExpressions.Count > 0
         ? subpatternExpressions.Aggregate((x, y) => x.And(y))
         : governingIdentifier.NotEquals(LuaIdentifierNameSyntax.Nil);
       if (recursivePattern.Type != null) {
-        var isExpression = BuildIsPatternExpression(inputType, recursivePattern.Type, governingIdentifier);
         if (isExpression != LuaIdentifierLiteralExpressionSyntax.True) {
           condition = isExpression.And(condition);
         }
-      } else if (subpatternExpressions.Count > 0 && governingIdentifier != null && (inputType is not { IsValueType: true } || inputType.IsNullableType())) {
+      } else if (subpatternExpressions.Count > 0 && mayBeNil) {
         // A property pattern does not match null.
         condition = governingIdentifier.NotEquals(LuaIdentifierNameSyntax.Nil).And(condition);
       }
