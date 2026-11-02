@@ -1,0 +1,4 @@
+using System;
+class Program { static void Main() { int x = 5; var s = x switch { var n when n % 2 == 0 => "even", var n => "odd" + n }; Console.WriteLine(s); } }
+
+static class H { public static void R(string n, System.Action a) { System.Console.WriteLine("# " + n); try { a(); } catch (System.Exception e) { string m; try { m = e.Message; } catch (System.Exception) { m = "?"; } System.Console.WriteLine("#! " + n + " " + m); System.Console.WriteLine(n + " EXC"); } } }
