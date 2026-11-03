@@ -18,6 +18,8 @@ local System = _G.System
 local define = System.define
 local throw = System.throw
 local each = System.each
+local dispose = System.dispose
+local disposeOf = System.disposeOf
 local identityFn = System.identityFn
 local wrap = System.wrap
 local unWrap = System.unWrap
@@ -758,10 +760,13 @@ function Enumerable.SequenceEqual(first, second, comparer)
   local e2 = second:GetEnumerator()
   while e1:MoveNext() do
     if not(e2:MoveNext() and equals(comparer, e1:getCurrent(), e2:getCurrent())) then
+      dispose(e1)
+      dispose(e2)
       return false
     end
   end
   if e2:MoveNext() then
+    dispose(e2)
     return false
   end
   return true
@@ -891,15 +896,17 @@ local function first(source, ...)
     else
       local en = source:GetEnumerator()
       if en:MoveNext() then
-        return true, en:getCurrent()
+        return true, disposeOf(en, en:getCurrent())
       end
     end
     return false, 0
   else
     local predicate = ...
     if predicate == nil then throw(ArgumentNullException("predicate")) end
-    for _, v in each(source) do
+    local fn, en, i = each(source)
+    for _, v in fn, en, i do
       if predicate(v) then
+        dispose(en)
         return true, v
       end
     end
@@ -988,16 +995,19 @@ local function single(source, ...)
       if not en:MoveNext() then
         return true, result
       end
+      dispose(en)
     end
     return false, 1
   else
     local predicate = ...
     if predicate == nil then throw(ArgumentNullException("predicate")) end
     local result, found
-    for _, v in each(source) do
+    local fn, en, i = each(source)
+    for _, v in fn, en, i do
       if predicate(v) then
         result = v
         if found then
+          dispose(en)
           return false, 1
         end
         found = true
@@ -1034,7 +1044,7 @@ local function elementAt(source, index)
       local en = source:GetEnumerator()
       while true do
         if not en:MoveNext() then break end
-        if index == 0 then return true, en:getCurrent() end
+        if index == 0 then return true, disposeOf(en, en:getCurrent()) end
         index = index - 1
       end
     end
@@ -1086,12 +1096,18 @@ function Enumerable.Any(source, ...)
   local len = select("#", ...)
   if len == 0 then
     local en = source:GetEnumerator()
-    return en:MoveNext()
+    if en:MoveNext() then
+      dispose(en)
+      return true
+    end
+    return false
   else
     local predicate = ...
     if predicate == nil then throw(ArgumentNullException("predicate")) end
-    for _, v in each(source) do
+    local fn, en, i = each(source)
+    for _, v in fn, en, i do
       if predicate(v) then
+        dispose(en)
         return true
       end
     end
@@ -1102,8 +1118,10 @@ end
 function Enumerable.All(source, predicate)
   if source == nil then throw(ArgumentNullException("source")) end
   if predicate == nil then throw(ArgumentNullException("predicate")) end
-  for _, v in each(source) do
+  local fn, en, i = each(source)
+  for _, v in fn, en, i do
     if not predicate(v) then
+      dispose(en)
       return false
     end
   end
@@ -1140,8 +1158,10 @@ function Enumerable.Contains(source, value, comparer)
   if source == nil then throw(ArgumentNullException("source")) end
   comparer = getComparer(source, comparer)
   local equals = comparer.EqualsOf
-  for _, v in each(source) do
+  local fn, en, i = each(source)
+  for _, v in fn, en, i do
     if equals(comparer, v, value) then
+      dispose(en)
       return true
     end
   end
