@@ -82,6 +82,7 @@ namespace CSharpLua {
 
     private static readonly Regex codeTemplateRegex_ = new(@"(,?\s*)\{(\*?[\w|`]+)\}", RegexOptions.Compiled);
     private readonly Dictionary<ISymbol, LuaIdentifierNameSyntax> localReservedNames_ = new(SymbolEqualityComparer.Default);
+    private readonly Dictionary<ISymbol, LuaPropertyAdapterExpressionSyntax> refElementLocals_ = new(SymbolEqualityComparer.Default);
     private readonly Dictionary<LuaFunctionExpressionSyntax, FunctionUpValuesInfo> functionUpValues_ = new();
     private int localMappingCounter_;
     private readonly Stack<bool> checks_ = new();
@@ -203,6 +204,26 @@ namespace CSharpLua {
         return true;
       }
       return false;
+    }
+
+    // ref int r = ref a[i]: the array and the index are kept in locals where r is made, as C# takes them then, and r is
+    // that element. Reading it once there throws for an index out of range where C# does.
+    private void AddRefElementLocal(LuaPropertyAdapterExpressionSyntax element, VariableDeclaratorSyntax variable) {
+      string name = variable.Identifier.ValueText;
+      CheckLocalBadWord(ref name, variable);
+      LuaIdentifierNameSyntax target = name;
+      CurBlock.AddStatement(new LuaLocalVariableDeclaratorSyntax(target, element.Expression));
+      element.Update(target);
+      var arguments = element.ArgumentList.Arguments;
+      for (int i = 0; i < arguments.Count; ++i) {
+        if (arguments[i] is not LuaLiteralExpressionSyntax) {
+          LuaIdentifierNameSyntax index = GetUniqueIdentifier(name + "Index" + (i > 0 ? i + 1 : ""), variable);
+          CurBlock.AddStatement(new LuaLocalVariableDeclaratorSyntax(index, arguments[i]));
+          arguments[i] = index;
+        }
+      }
+      CurBlock.AddStatement(new LuaExpressionStatementSyntax(element.GetClone()));
+      refElementLocals_.Add(semanticModel_.GetDeclaredSymbol(variable), element);
     }
 
     private void AddLocalVariableMapping(LuaIdentifierNameSyntax name, SyntaxNode node) {

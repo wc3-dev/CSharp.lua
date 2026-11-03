@@ -178,6 +178,7 @@ namespace CSharpLua {
       --localMappingCounter_;
       if (localMappingCounter_ == 0) {
         localReservedNames_.Clear();
+        refElementLocals_.Clear();
       }
       functionUpValues_.Remove(function);
       Contract.Assert(function.TempCount == 0);
@@ -3489,6 +3490,11 @@ namespace CSharpLua {
       switch (symbol.Kind) {
         case SymbolKind.Local: {
           var localSymbol = (ILocalSymbol)symbol;
+          if (refElementLocals_.TryGetValue(localSymbol, out var element)) {
+            identifier = element.GetClone();
+            CheckValueTypeClone(localSymbol.Type, node, ref identifier);
+            break;
+          }
           if (localSymbol.IsConst) {
             if (localSymbol.Type.SpecialType == SpecialType.System_String) {
               if (((string)localSymbol.ConstantValue).Length <= kStringConstInlineCount || inlinedConstLocals_.Contains(localSymbol)) {
@@ -3777,6 +3783,12 @@ namespace CSharpLua {
           if (value.Expression.IsKind(SyntaxKind.InvocationExpression)) {
             var invocationExpression = (LuaInvocationExpressionSyntax)refExpression;
             AddRefInvocationVariableMapping((InvocationExpressionSyntax)value.Expression, invocationExpression, variable);
+          } else if (value.Expression.IsKind(SyntaxKind.ElementAccessExpression) && refExpression is LuaPropertyAdapterExpressionSyntax element) {
+            AddRefElementLocal(element, variable);
+            isRefIgnore = true;
+          } else if (semanticModel_.GetSymbolInfo(value.Expression).Symbol is ILocalSymbol other && refElementLocals_.TryGetValue(other, out var otherElement)) {
+            refElementLocals_.Add(semanticModel_.GetDeclaredSymbol(variable), otherElement);
+            isRefIgnore = true;
           } else {
             AddLocalVariableMapping(new LuaSymbolNameSyntax(refExpression), variable);
             isRefIgnore = true;
