@@ -1,8 +1,7 @@
 # T1
 a1c2.5True 10
 # T2
-#! T2 attempt to index a nil value
-T2 EXC
+h heLLo
 # T3
 aNNb
 # T4
@@ -14,13 +13,11 @@ aX
 # T6
 1-2.5[3]
 # T7
-bcSystem.Char[]zzz
+bcxyzzz
 # T8
-#! T8 attempt to call a nil value (method 'Equals')
-T8 EXC
+bcd True 3
 # T9
-#! T9 attempt to call a nil value (method 'AppendJoin')
-T9 EXC
+1,2,3
 # T10
 False
 x

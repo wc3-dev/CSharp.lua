@@ -820,6 +820,10 @@ limitations under the License.
           <arg type="System.Char" />
           <arg type="System.Int32" />
         </method>
+        <method name="Insert" Name="InsertChar">
+          <arg type="System.Int32" />
+          <arg type="System.Char" />
+        </method>
       </class>
     </namespace>
     <namespace name="System.Threading" Name="System">

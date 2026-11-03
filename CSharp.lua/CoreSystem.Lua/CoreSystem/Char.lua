@@ -164,7 +164,7 @@ local Char = System.defStc("System.Char", {
       c = get(c, index)
     end
     if c < 256 then
-      return (c >= 162 and c <= 169) or (c >= 174 and c <= 177) or isSymbolTable(c) == true
+      return (c >= 162 and c <= 169) or (c >= 174 and c <= 177) or isSymbolTable[c] == true
     end
     return false
   end,
@@ -229,6 +229,53 @@ local Char = System.defStc("System.Char", {
     return { System.IComparable, System.IComparable_1(T), System.IEquatable_1(T) }
   end
 })
+
+local function isAsciiDigit(c)
+  return c >= 48 and c <= 57
+end
+
+Char.IsAscii = function (c)
+  return c <= 127
+end
+Char.IsAsciiDigit = isAsciiDigit
+Char.IsAsciiLetterLower = function (c)
+  return c >= 97 and c <= 122
+end
+Char.IsAsciiLetterUpper = function (c)
+  return c >= 65 and c <= 90
+end
+Char.IsAsciiLetterOrDigit = function (c)
+  return isAsciiLetter(c) or isAsciiDigit(c)
+end
+Char.IsAsciiHexDigit = function (c)
+  return isAsciiDigit(c) or (c >= 65 and c <= 70) or (c >= 97 and c <= 102)
+end
+Char.IsAsciiHexDigitLower = function (c)
+  return isAsciiDigit(c) or (c >= 97 and c <= 102)
+end
+Char.IsAsciiHexDigitUpper = function (c)
+  return isAsciiDigit(c) or (c >= 65 and c <= 70)
+end
+-- As .NET's (uint)(c - min) <= (uint)(max - min).
+Char.IsBetween = function (c, minInclusive, maxInclusive)
+  local d, range = c - minInclusive, maxInclusive - minInclusive
+  if (d < 0) == (range < 0) then
+    return d <= range
+  end
+  return d >= 0
+end
+-- The value of an ASCII digit; .NET also knows other scripts' digits and fractions.
+Char.GetNumericValue = function (c, index)
+  if index then
+    c = get(c, index)
+  end
+  if isAsciiDigit(c) then
+    return c - 48
+  end
+  return -1
+end
+Char.ToLowerInvariant = Char.ToLower
+Char.ToUpperInvariant = Char.ToUpper
 
 local ValueType = System.ValueType
 local charMetaTable = setmetatable({ __index = ValueType, __call = Char.default }, ValueType)
