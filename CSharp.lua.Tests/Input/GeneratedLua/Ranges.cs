@@ -10,6 +10,10 @@ class Program {
     }
   }
 
+  static string Head(int[] a) => a is [var first, .. var rest] ? first + ":" + string.Join(",", rest) : "empty";
+  static string Chars(string s) => s is [var c, .. var tail] ? c + "|" + tail : "empty";
+  static string Middle(int[] a) => a is [_, .. var middle, _] ? string.Join(",", middle) : "short";
+
   public static void Main() {
     var array = new[] { 1, 2, 3, 4, 5 };
     var list = new List<int> { 1, 2, 3 };
@@ -35,6 +39,7 @@ class Program {
     Show("SliceOutOfRange", () => string.Join(",", array[3..9]));
     Show("StaticRanges", () => string.Join(",", array[Range.StartAt(3)]) + " " + string.Join(",", array[Range.EndAt(1)]) + " " + array[Range.All].Length);
     Show("RangeText", () => r.ToString() + " " + (1..^1).Equals(r) + " " + (1..2).Equals(r));
+    Show("ListPatterns", () => Head(new[] { 1, 2, 3 }) + " " + Head(new int[0]) + " " + Chars("abc") + " " + Chars("") + " " + Middle(new[] { 1, 2, 3, 4 }) + " " + Middle(new[] { 1 }));
     Show("IndexZero", () => text[^0..].Length + " " + Index.End.IsFromEnd);
   }
 }

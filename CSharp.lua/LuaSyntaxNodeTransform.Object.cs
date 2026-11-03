@@ -1906,10 +1906,12 @@ namespace CSharpLua {
 
         var slicePattern = (SlicePatternSyntax)patterns[sliceIndex];
         if (slicePattern.Pattern != null && !slicePattern.Pattern.IsKind(SyntaxKind.DiscardPattern)) {
+          // The core's slice, as source[start..^tailCount] is: a string's text, an array's elements or a List's Slice.
           int start = sliceIndex;
           int tailCount = patterns.Count - 1 - sliceIndex;
-          LuaExpressionSyntax lengthArg = countExpr.Binary(LuaSyntaxNode.Tokens.Sub, new LuaIdentifierLiteralExpressionSyntax((start + tailCount).ToString()));
-          var sliceInvoke = new LuaInvocationExpressionSyntax(target.MemberAccess("Slice", true), new LuaIdentifierLiteralExpressionSyntax(start.ToString()), lengthArg);
+          var end = new LuaIdentifierLiteralExpressionSyntax(tailCount == 0 ? "-0.0" : (-tailCount).ToString());
+          var range = LuaIdentifierNameSyntax.Range.Invocation(new LuaIdentifierLiteralExpressionSyntax(start.ToString()), end);
+          var sliceInvoke = LuaIdentifierNameSyntax.Range.MemberAccess("slice").Invocation(target, range);
           if (slicePattern.Pattern is VarPatternSyntax varPattern) {
             if (!varPattern.Designation.IsKind(SyntaxKind.DiscardDesignation)) {
               AddLocalVariableMapping(new LuaSymbolNameSyntax(sliceInvoke), varPattern.Designation);
