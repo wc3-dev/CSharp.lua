@@ -17,8 +17,11 @@ a conditional, long constant string locals, positional patterns, local functions
 after a using declaration, small integers that wrap, checked arithmetic, private indexers, LINQ that stops early, casts
 to ignored classes, switch expression arm patterns, tuples, structs read from collections, string calls, user-defined
 ++ and --, operator true and false, derived records, with on anonymous types, ref locals of elements, ranges and
-indexes, enums as text, exceptions caught by type and catch filters, params collections, and chars and enums given as
-objects. Each change is in the history of the moonwell-package branch.
+indexes, enums as text, exceptions caught by type and catch filters, params collections, chars and enums given as
+objects, an overridable property read in its own class, locals shared by switch sections, structs given back through
+out arguments, out arguments in a conditional's branch, private static fields past Lua's 200 locals, number formats,
+and the members of collections, LINQ, StringBuilder, char, string, Math, Convert, BitOperations, HashCode,
+StringComparer, BitArray and Span the core lacked. Each change is in the history of the moonwell-package branch.
 
 CSharp.lua/CSharp.lua.csproj
 CSharp.lua/Compiler.cs
@@ -40,16 +43,26 @@ CSharp.lua/ProjectHelper.cs
 CSharp.lua/System.xml
 CSharp.lua/Utils.cs
 CSharp.lua/CoreSystem.Lua/CoreSystem/Array.lua
+CSharp.lua/CoreSystem.Lua/CoreSystem/Char.lua
+CSharp.lua/CoreSystem.Lua/CoreSystem/Collections/Dictionary.lua
+CSharp.lua/CoreSystem.Lua/CoreSystem/Collections/EqualityComparer.lua
+CSharp.lua/CoreSystem.Lua/CoreSystem/Collections/HashSet.lua
 CSharp.lua/CoreSystem.Lua/CoreSystem/Collections/Linq.lua
 CSharp.lua/CoreSystem.Lua/CoreSystem/Collections/List.lua
+CSharp.lua/CoreSystem.Lua/CoreSystem/Collections/Queue.lua
+CSharp.lua/CoreSystem.Lua/CoreSystem/Collections/Stack.lua
+CSharp.lua/CoreSystem.Lua/CoreSystem/Convert.lua
 CSharp.lua/CoreSystem.Lua/CoreSystem/Core.lua
 CSharp.lua/CoreSystem.Lua/CoreSystem/Enum.lua
 CSharp.lua/CoreSystem.Lua/CoreSystem/Math.lua
 CSharp.lua/CoreSystem.Lua/CoreSystem/MemoryExtensions.lua
 CSharp.lua/CoreSystem.Lua/CoreSystem/Natives.lua
 CSharp.lua/CoreSystem.Lua/CoreSystem/Number.lua
+CSharp.lua/CoreSystem.Lua/CoreSystem/Numerics/HashCodeHelper.lua
 CSharp.lua/CoreSystem.Lua/CoreSystem/ReadOnlySpan.lua
 CSharp.lua/CoreSystem.Lua/CoreSystem/Span.lua
 CSharp.lua/CoreSystem.Lua/CoreSystem/String.lua
+CSharp.lua/CoreSystem.Lua/CoreSystem/Text/StringBuilder.lua
 CSharp.lua/CoreSystem.Lua/CoreSystem/Threading/Task.lua
+CSharp.lua/CoreSystem.Lua/CoreSystem/Utilities.lua
 CSharp.lua.CoreSystem/CSharp.lua.CoreSystem.csproj
