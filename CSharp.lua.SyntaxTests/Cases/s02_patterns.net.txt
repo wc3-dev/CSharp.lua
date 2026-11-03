@@ -1,0 +1,49 @@
+# T1
+True
+False
+True
+# T2
+True
+False
+# T3
+True
+True
+False
+True
+# T4
+1 3
+# T5
+True True True True
+# T6
+one char s
+not int
+# T7
+True
+2
+3
+# T8
+True
+True
+True
+# T9
+True
+False
+# T10
+True
+True
+True
+# T11
+int,string,float,null,P,char,bool,
+# T12
+gt2
+# T13
+True
+True
+# T14
+True
+True
+# T15
+True
+False
+3
+True

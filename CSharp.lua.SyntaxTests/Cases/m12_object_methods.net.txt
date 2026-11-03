@@ -1,0 +1,19 @@
+# T1
+True True 3
+# T2
+P5 P5
+# T3
+10
+# T4
+Q True True
+# T5
+True
+True
+# T6
+True
+True True True True
+# T7
+False True
+# T8
+True
+6

@@ -1,0 +1,19 @@
+# T1
+12 15
+# T2
+2 2
+# T3
+2
+1
+# T4
+12 3
+# T5
+3
+# T6
+4
+# T7
+3
+0
+# T8
+#! T8 attempt to call a nil value (method '__clone__')
+T8 EXC

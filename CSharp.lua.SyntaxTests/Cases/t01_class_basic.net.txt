@@ -1,0 +1,12 @@
+# T1
+6 20 30 5 A3 A10
+# T2
+True False True False
+# T3
+A B True False
+# T4
+True
+1
+True
+# T5
+A Int32 String A

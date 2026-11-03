@@ -1,0 +1,39 @@
+# T1
+dflt
+set
+set
+# T2
+
+none
+
+# T3
+deep
+True
+# T4
+
+4
+# T5
+5
+3
+3
+# T6
+
+2
+False False False True
+# T7
+-1
+False
+# T8
+ok8
+# T9
+x
+# T10
+10 True
+ioe
+# T11
+ True False False
+# T12
+empty
+# T13
+d
+4

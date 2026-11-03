@@ -1,0 +1,35 @@
+# T1
+1a
+# T2
+1a
+# T3
+1 4
+# T4
+#! T4 attempt to index a number value (local 'v')
+T4 EXC
+# T5
+21
+# T6
+3
+True
+True
+# T7
+xFalse
+# T8
+1
+# T9
+z
+# T10
+#! T10 attempt to index a number value (local 'v')
+T10 EXC
+# T11
+1 9
+# T12
+a1b2
+# T13
+True
+-1
+# T14
+12
+# T15
+7

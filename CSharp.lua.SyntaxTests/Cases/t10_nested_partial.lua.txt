@@ -1,0 +1,6 @@
+# T1
+4 3 True
+# T2
+Y 4
+# T3
+Outer+Inner Outer+Inner

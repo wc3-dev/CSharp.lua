@@ -1,0 +1,26 @@
+# T1
+onetwo-threeother
+# T2
+AB?
+# T3
+onetwothreebignegother
+# T4
+bigintint2strznullobj
+# T5
+alowerx
+# T6
+2d
+# T7
+5
+# T8
+match
+# T9
+null
+# T10
+02
+# T11
+week
+# T12
+odd5
+# T13
+nomatch

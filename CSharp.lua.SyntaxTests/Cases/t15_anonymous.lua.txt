@@ -1,0 +1,8 @@
+# T1
+1s True
+# T2
+System.AnonymousType
+# T3
+1:1 2:4 3:9 
+# T4
+False

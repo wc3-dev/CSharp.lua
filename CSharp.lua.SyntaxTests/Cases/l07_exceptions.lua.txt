@@ -1,0 +1,67 @@
+# T1
+boom
+# T2
+try
+finally
+# T3
+m5
+# T4
+Sub7
+# T5
+inner finally
+outer in
+# T6
+filter x
+# T7
+b a InvalidOperationException
+# T8
+rethrow
+# T9
+f-finally
+1
+# T10
+g-finally
+2
+# T11
+#! T11 attempt to get length of a nil value (upvalue 's')
+T11 EXC
+# T12
+ice
+# T13
+#! T13 Value cannot be null. (Parameter 's')
+T13 EXC
+# T14
+ane s
+# T15
+True p
+# T16
+b0f0f1f2
+# T17
+nie
+# T18
+#! T18 attempt to index a nil value (global 'ioe')
+T18 EXC
+# T19
+True True System.Exception
+# T20
+True 1 custom
+# T21
+False
+# T22
+True
+# T23
+fe
+null ok
+# T24
+2
+# T25
+oce
+Exception
+# T26
+KeyNotFoundException
+ArithmeticException
+# T27
+Exception
+# T28
+#! T28 attempt to call a nil value (method 'setSource')
+T28 EXC

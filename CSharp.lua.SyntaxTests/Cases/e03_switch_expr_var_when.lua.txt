@@ -1,0 +1,1 @@
+CRASH InvalidCastException: Unable to cast object of type 'Microsoft.CodeAnalysis.CSharp.Syntax.SingleVariableDesignationSyntax' to type 'Microsoft.CodeAnalysis.CSharp.Syntax.ParenthesizedVariableDesignationSyntax'.

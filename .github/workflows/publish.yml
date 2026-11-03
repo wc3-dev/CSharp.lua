@@ -33,6 +33,9 @@ jobs:
       - name: Test
         run: dotnet test CSharp.lua.Tests/CSharp.lua.Tests.csproj --configuration Debug --filter "Name!=TestCommonApi&Name!=TestCSharpLuaTemplateThroughPackage"
 
+      - name: Syntax tests
+        run: dotnet test CSharp.lua.SyntaxTests/CSharp.lua.SyntaxTests.csproj --configuration Debug
+
       # A Release build writes each package (GeneratePackageOnBuild); dotnet pack stops on NU5026.
       - name: Pack
         shell: pwsh

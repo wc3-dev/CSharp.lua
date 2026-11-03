@@ -1,0 +1,1 @@
+CRASH InvalidCastException: Unable to cast object of type 'Microsoft.CodeAnalysis.CSharp.Symbols.PublicModel.NonErrorNamedTypeSymbol' to type 'Microsoft.CodeAnalysis.IArrayTypeSymbol'.

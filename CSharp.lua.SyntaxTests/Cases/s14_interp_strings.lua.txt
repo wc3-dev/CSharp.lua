@@ -1,0 +1,33 @@
+# T1
+5 x 6 X
+# T2
+[   5] [5   ] [   ab] [ab   ]
+# T3
+FF 00ff 010 1234.5 0.5 1234567 5
+# T4
+{literal} 1
+# T5
+raw 2 "q" 
+# T6
+y
+# T7
+[]
+[]
+# T8
+True c 1.5 2 3
+# T9
+a 2 a
+   ab|3.14
+# T10
+3.00   3.0 3.00E+000
+# T11
+1 100 10000000000 0.300000012 0.333333343
+# T12
+1972.5True
+12
+# T13
+Monday Monday
+# T14
+12
+#! T14 attempt to call a nil value (method 'getFormat')
+T14 EXC

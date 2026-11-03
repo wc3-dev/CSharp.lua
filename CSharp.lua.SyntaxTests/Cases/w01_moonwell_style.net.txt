@@ -1,0 +1,27 @@
+# T1
+hero hit 10
+pal died
+hero hit 1
+# T2
+6 2 2 False
+# T3
+2 1 True 1
+# T4
+2 True
+# T5
+q True
+# T6
+1
+# T7
+True 1 Hero True Unit:z
+# T8
+1 False
+# T9
+False True True
+# T10
+a,b
+# T11
+cb w
+cb w
+# T12
+3

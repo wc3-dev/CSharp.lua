@@ -1,0 +1,56 @@
+# T1
+11 2 2
+# T2
+True False True True1 False0
+# T3
+True False 1
+0
+# T4
+1a3c
+# T5
+2 3 a,b True
+# T6
+knf
+dup
+# T7
+2
+# T8
+xFalse
+# T9
+#! T9 attempt to index a nil value (field 'CollectionExtensions')
+T9 EXC
+# T10
+1 6
+
+# T11
+328350 100
+# T12
+2 
+2
+# T13
+ab
+# T14
+tf
+# T15
+1 False
+# T16
+#! T16 attempt to index a nil value (field 'StringComparer')
+T16 EXC
+# T17
+a!
+# T18
+modified
+# T19
+1,2,3abc
+# T20
+a2
+# T21
+4
+# T22
+1 2
+# T23
+3 True 2
+# T24
+6
+# T25
+2

@@ -13,6 +13,8 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "CSharp.lua.Api", "CSharp.lu
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "CSharp.lua.Tests", "CSharp.lua.Tests\CSharp.lua.Tests.csproj", "{84566F2F-8D30-4FA5-BB46-3EA9F964F4B7}"
 EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "CSharp.lua.SyntaxTests", "CSharp.lua.SyntaxTests\CSharp.lua.SyntaxTests.csproj", "{EFD9F175-1040-41A2-B711-C0F5828A426E}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -39,6 +41,10 @@ Global
 		{84566F2F-8D30-4FA5-BB46-3EA9F964F4B7}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{84566F2F-8D30-4FA5-BB46-3EA9F964F4B7}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{84566F2F-8D30-4FA5-BB46-3EA9F964F4B7}.Release|Any CPU.Build.0 = Release|Any CPU
+		{EFD9F175-1040-41A2-B711-C0F5828A426E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{EFD9F175-1040-41A2-B711-C0F5828A426E}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{EFD9F175-1040-41A2-B711-C0F5828A426E}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{EFD9F175-1040-41A2-B711-C0F5828A426E}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

@@ -1,0 +1,34 @@
+# T1
+Green 6
+# T2
+Green 99
+# T3
+Red
+# T4
+A, C 5 True False
+# T5
+A AB None B
+# T6
+Blue
+# T7
+True
+# T8
+Red,Green,Blue
+# T9
+Red;Green;Blue;
+# T10
+-1 True True
+# T11
+g
+# T12
+Big
+# T13
+False Red
+# T14
+Green Byte
+# T15
+1
+# T16
+AB AB, C 8
+# T17
+Blue 6 6

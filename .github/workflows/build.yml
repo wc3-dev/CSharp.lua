@@ -27,3 +27,6 @@ jobs:
     # War3Api 1.32.0.4-beta1, which the repository does not restore.
     - name: Run CSharp.lua.Tests
       run: dotnet test CSharp.lua.Tests/CSharp.lua.Tests.csproj --configuration Debug --filter "Name!=TestCommonApi&Name!=TestCSharpLuaTemplateThroughPackage"
+    # About 770 checks of C# run in Lua, each printing what was recorded (CSharp.lua.SyntaxTests/SyntaxCaseTests.cs).
+    - name: Run CSharp.lua.SyntaxTests
+      run: dotnet test CSharp.lua.SyntaxTests/CSharp.lua.SyntaxTests.csproj --configuration Debug

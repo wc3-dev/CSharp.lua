@@ -1,0 +1,19 @@
+# T1
+R { A = 1, B = x } True True True False
+# T2
+R { A = 5, B = x } R { A = 1, B = x }
+# T3
+1x
+# T4
+8
+# T5
+RC { A = 4, Twice = }
+# T6
+RS { A = 1, B = 2 } RS { A = 1, B = 9 } False
+# T7
+Person { Name = Z, Age = 3 } 4
+# T8
+#! T8 attempt to call a nil value (field 'op_Equality1')
+T8 EXC
+# T9
+R { A = 1, B = }
