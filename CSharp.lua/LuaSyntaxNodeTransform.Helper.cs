@@ -82,6 +82,7 @@ namespace CSharpLua {
 
     private static readonly Regex codeTemplateRegex_ = new(@"(,?\s*)\{(\*?[\w|`]+)\}", RegexOptions.Compiled);
     private readonly Dictionary<ISymbol, LuaIdentifierNameSyntax> localReservedNames_ = new(SymbolEqualityComparer.Default);
+    private readonly Dictionary<ISymbol, LuaPropertyAdapterExpressionSyntax> refElementLocals_ = new(SymbolEqualityComparer.Default);
     private readonly Dictionary<LuaFunctionExpressionSyntax, FunctionUpValuesInfo> functionUpValues_ = new();
     private int localMappingCounter_;
     private readonly Stack<bool> checks_ = new();
@@ -203,6 +204,26 @@ namespace CSharpLua {
         return true;
       }
       return false;
+    }
+
+    // ref int r = ref a[i]: the array and the index are kept in locals where r is made, as C# takes them then, and r is
+    // that element. Reading it once there throws for an index out of range where C# does.
+    private void AddRefElementLocal(LuaPropertyAdapterExpressionSyntax element, VariableDeclaratorSyntax variable) {
+      string name = variable.Identifier.ValueText;
+      CheckLocalBadWord(ref name, variable);
+      LuaIdentifierNameSyntax target = name;
+      CurBlock.AddStatement(new LuaLocalVariableDeclaratorSyntax(target, element.Expression));
+      element.Update(target);
+      var arguments = element.ArgumentList.Arguments;
+      for (int i = 0; i < arguments.Count; ++i) {
+        if (arguments[i] is not LuaLiteralExpressionSyntax) {
+          LuaIdentifierNameSyntax index = GetUniqueIdentifier(name + "Index" + (i > 0 ? i + 1 : ""), variable);
+          CurBlock.AddStatement(new LuaLocalVariableDeclaratorSyntax(index, arguments[i]));
+          arguments[i] = index;
+        }
+      }
+      CurBlock.AddStatement(new LuaExpressionStatementSyntax(element.GetClone()));
+      refElementLocals_.Add(semanticModel_.GetDeclaredSymbol(variable), element);
     }
 
     private void AddLocalVariableMapping(LuaIdentifierNameSyntax name, SyntaxNode node) {
@@ -804,9 +825,14 @@ namespace CSharpLua {
           return true;
 
         case SyntaxKind.ParenthesizedLambdaExpression:
+        case SyntaxKind.SimpleLambdaExpression:
+        case SyntaxKind.AnonymousMethodExpression:
           return false;
 
+        // A method group, by its name or through its class or an object, is made a delegate, and has no type of its own.
         case SyntaxKind.IdentifierName:
+        case SyntaxKind.GenericName:
+        case SyntaxKind.SimpleMemberAccessExpression:
           var symbol = semanticModel_.GetSymbolInfo(conditionalWhenTrue).Symbol;
           if (symbol != null) {
             if (symbol.Kind == SymbolKind.Method) {
@@ -1268,7 +1294,7 @@ namespace CSharpLua {
       return parameter;
     }
 
-    private void CheckValueTypeClone(ITypeSymbol typeSymbol, IdentifierNameSyntax node, ref LuaExpressionSyntax expression, bool isPropertyField = false) {
+    private void CheckValueTypeClone(ITypeSymbol typeSymbol, ExpressionSyntax node, ref LuaExpressionSyntax expression, bool isPropertyField = false) {
       if (typeSymbol.IsCustomValueType() && !generator_.IsReadOnlyStruct(typeSymbol) && !typeSymbol.IsNullableWithBasicElementType() && expression is not LuaPropertyTemplateExpressionSyntax) {
         bool need = false;
         if (isPropertyField) {
@@ -1430,6 +1456,11 @@ namespace CSharpLua {
     }
 
     private LuaIdentifierNameSyntax GetMemberName(ISymbol symbol) {
+      // A record's own Equals, == and != are the core's (System.RecordType), which every record inherits under their plain
+      // names; a derived record's would be numbered as overloads (Equals1, op_Equality1), which nothing has.
+      if (symbol is IMethodSymbol { IsImplicitlyDeclared: true, Name: "Equals" or "op_Equality" or "op_Inequality" } && symbol.ContainingType.IsRecord) {
+        return symbol.Name;
+      }
       return generator_.GetMemberName(symbol);
     }
 
