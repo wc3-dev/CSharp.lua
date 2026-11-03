@@ -55,8 +55,7 @@ ab |x|a,b
 # T24
 b bXc cba
 # T25
-#! T25 attempt to call a nil value (field 'Range')
-T25 EXC
+3 2 T b
 # T26
 #! T26 attempt to call a nil value (field 'Intern')
 T26 EXC
