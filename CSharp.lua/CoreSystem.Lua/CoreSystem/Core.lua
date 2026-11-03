@@ -1305,6 +1305,14 @@ ValueType = defCls("System.ValueType", {
 
 local AnonymousType
 AnonymousType = defCls("System.AnonymousType", {
+  -- For with, which copies the object and sets the members it names.
+  __clone__ = function (this)
+    local t = {}
+    for k, v in pairs(this) do
+      t[k] = v
+    end
+    return setmetatable(t, AnonymousType)
+  end,
   EqualsObj = function (this, obj)
     if getmetatable(obj) ~= AnonymousType then return false end
     for k, v in pairs(this) do
@@ -1363,7 +1371,10 @@ local function tupleCompareToObj(t, obj)
   return tupleCompareTo(t, obj)
 end
 
+-- Each item as the rest of the core writes values as text, which needs no methods on numbers or booleans; a char is a
+-- number, written as its character by the item's type.
 local function tupleToString(t)
+  local types = getmetatable(t).__genericT__
   local a = { "(" }
   local count = 2
   for i = 1, t.n do
@@ -1373,7 +1384,11 @@ local function tupleToString(t)
     end
     local v = t[i]
     if v ~= nil then
-      a[count] = v:ToString()
+      if types and types[i] == System.Char then
+        a[count] = string.char(v)
+      else
+        a[count] = toString(v)
+      end
       count = count + 1
     end
   end
@@ -1441,8 +1456,9 @@ end, ValueTuple, '')
 ValueTuple.__call = tupleCreate
 System.ValueTuple = ValueTupleFn
 
+-- rawequal: == on two records is this function, so it would call itself without end.
 local function recordEquals(t, other)
-  if t == other then return true end
+  if rawequal(t, other) then return true end
   if getmetatable(t) == getmetatable(other) then
     for k, v in pairs(t) do
       if not equalsObj(v, other[k]) then
