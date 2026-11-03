@@ -1986,8 +1986,9 @@ namespace CSharpLua {
             case SyntaxKind.RightShiftAssignmentExpression: {
               if (containingType.IsIntegerType(false)) {
                 bool isLeftShift = kind == SyntaxKind.LeftShiftAssignmentExpression;
-                if (IsLuaClassic) {
-                  var method = isLeftShift ? LuaIdentifierNameSyntax.ShiftLeft : LuaIdentifierNameSyntax.ShiftRight;
+                bool isArithmetic = !isLeftShift && containingType.SpecialType == SpecialType.System_Int32;
+                if (IsLuaClassic || isArithmetic) {
+                  var method = isLeftShift ? LuaIdentifierNameSyntax.ShiftLeft : isArithmetic ? LuaIdentifierNameSyntax.ShiftRightArithmetic : LuaIdentifierNameSyntax.ShiftRight;
                   if (IsNullableAssignmentExpression(leftNode, rightNode, null, out var result, method)) {
                     return result;
                   }
@@ -5043,9 +5044,11 @@ namespace CSharpLua {
             case SyntaxKind.RightShiftExpression: {
               if (containingType.IsIntegerType(false)) {
                 bool isLeftShift = kind == SyntaxKind.LeftShiftExpression;
+                // C#'s >> of an int keeps its sign; Lua's shifts in zeros.
+                bool isArithmetic = !isLeftShift && containingType.SpecialType == SpecialType.System_Int32;
                 string operatorToken = isLeftShift ? LuaSyntaxNode.Tokens.ShiftLeft : LuaSyntaxNode.Tokens.ShiftRight;
-                if (IsLuaClassic) {
-                  var method = isLeftShift ? LuaIdentifierNameSyntax.ShiftLeft : LuaIdentifierNameSyntax.ShiftRight;
+                if (IsLuaClassic || isArithmetic) {
+                  var method = isLeftShift ? LuaIdentifierNameSyntax.ShiftLeft : isArithmetic ? LuaIdentifierNameSyntax.ShiftRightArithmetic : LuaIdentifierNameSyntax.ShiftRight;
                   if (IsNullableBinaryExpression(node, operatorToken, out var result, method)) {
                     return result;
                   }

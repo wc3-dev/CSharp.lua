@@ -515,13 +515,14 @@ System.luaVersion = version
       bit = b32
     end
   end
+  local sar
   if bit then
-    bnot, band, bor, xor, sl, sr = bit.bnot, bit.band, bit.bor, bit.bxor, bit.lshift, bit.rshift
+    bnot, band, bor, xor, sl, sr, sar = bit.bnot, bit.band, bit.bor, bit.bxor, bit.lshift, bit.rshift, bit.arshift
   else
     local function disable()
       throw(System.NotSupportedException("bit operation is not enabled."))
     end
-    bnot, band, bor, xor, sl, sr  = disable, disable, disable, disable, disable, disable
+    bnot, band, bor, xor, sl, sr, sar = disable, disable, disable, disable, disable, disable, disable
   end
 
   System.bnot = bnot
@@ -530,6 +531,7 @@ System.luaVersion = version
   System.xor = xor
   System.sl = sl
   System.sr = sr
+  System.sar = sar
 
   function System.div(x, y)
     if y == 0 then throw(System.DivideByZeroException(), 1) end
@@ -742,6 +744,14 @@ else
   function System.xor(x, y) return x ~ y end
   function System.sl(x, y) return x << y end
   function System.sr(x, y) return x >> y end
+  -- C#'s >> of an int keeps its sign, where Lua's shifts in zeros, and takes its count mod 32.
+  function System.sar(x, y)
+    y = y & 31
+    if x >= 0 then
+      return x >> y
+    end
+    return ~(~x >> y)
+  end
   function System.div(x, y) if x ~ y < 0 then return -(-x // y) end return x // y end
 
   function System.mod(x, y)
