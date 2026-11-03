@@ -3816,34 +3816,42 @@ namespace CSharpLua {
       return new LuaLocalDeclarationStatementSyntax(declaration);
     }
 
+    // A struct declared with no value is nil in Lua until given one, so it gets its default unless the first statement of
+    // its block that names it gives it a whole value (p = ...): a field set first (p.X = 1), a use in a nested block and
+    // a use in another switch section need the default.
     private bool IsValueTypeVariableDeclarationWithoutAssignment(VariableDeclaratorSyntax variable) {
-      var body = FindParentMethodBody(variable);
-      if (body != null) {
-        int index = body.Statements.IndexOf((StatementSyntax)variable.Parent.Parent);
-        foreach (var i in body.Statements.Skip(index + 1)) {
-          if (i.IsKind(SyntaxKind.ExpressionStatement)) {
-            var expressionStatement = (ExpressionStatementSyntax)i;
-            if (expressionStatement.Expression.IsKind(SyntaxKind.SimpleAssignmentExpression)) {
-              var assignment = (AssignmentExpressionSyntax)expressionStatement.Expression;
-              if (assignment.Left.IsKind(SyntaxKind.IdentifierName)) {
-                var identifierName = (IdentifierNameSyntax)assignment.Left;
-                if (identifierName.Identifier.ValueText == variable.Identifier.ValueText) {
-                  return false;
-                }
-              } else if (assignment.Left.IsKind(SyntaxKind.SimpleMemberAccessExpression)) {
-                var memberAccessExpression = (MemberAccessExpressionSyntax)assignment.Left;
-                if (memberAccessExpression.Expression.IsKind(SyntaxKind.IdentifierName)) {
-                  var identifierName = (IdentifierNameSyntax)memberAccessExpression.Expression;
-                  if (identifierName.Identifier.ValueText == variable.Identifier.ValueText) {
-                    return true;
-                  }
-                }
-              }
-            }
+      var symbol = semanticModel_.GetDeclaredSymbol(variable);
+      var declaration = (StatementSyntax)variable.Parent.Parent;
+      SyntaxList<StatementSyntax> statements;
+      switch (declaration.Parent) {
+        case BlockSyntax block:
+          statements = block.Statements;
+          break;
+        case SwitchSectionSyntax section:
+          if (((SwitchStatementSyntax)section.Parent).Sections.Any(i => i != section && IsNaming(i, symbol))) {
+            return true;
           }
+          statements = section.Statements;
+          break;
+        default:
+          return true;
+      }
+
+      foreach (var statement in statements.Skip(statements.IndexOf(declaration) + 1)) {
+        if (statement is ExpressionStatementSyntax { Expression: AssignmentExpressionSyntax { Left: IdentifierNameSyntax name } assignment }
+          && assignment.IsKind(SyntaxKind.SimpleAssignmentExpression) && symbol.EQ(semanticModel_.GetSymbolInfo(name).Symbol)) {
+          return false;
+        }
+        if (IsNaming(statement, symbol)) {
+          return true;
         }
       }
       return false;
+    }
+
+    private bool IsNaming(SyntaxNode node, ISymbol symbol) {
+      return node.DescendantNodes().OfType<IdentifierNameSyntax>()
+        .Any(i => i.Identifier.ValueText == symbol.Name && symbol.EQ(semanticModel_.GetSymbolInfo(i).Symbol));
     }
 
     public override LuaSyntaxNode VisitVariableDeclaration(VariableDeclarationSyntax node) {
@@ -3880,20 +3888,27 @@ namespace CSharpLua {
           }
           if (!isConst) {
             var variableDeclarator = variable.Accept<LuaVariableDeclaratorSyntax>(this);
+            LuaExpressionSyntax defaultValue = null;
             if (variableDeclarator.Initializer == null) {
               typeSymbol ??= semanticModel_.GetTypeInfo(node.Type).Type;
               if (typeSymbol.IsCustomValueType() && IsValueTypeVariableDeclarationWithoutAssignment(variable)) {
-                var typeExpression = GetTypeName(typeSymbol);
-                variableDeclarator.Initializer = new LuaEqualsValueClauseSyntax(BuildDefaultValue(typeExpression));
+                defaultValue = BuildDefaultValue(GetTypeName(typeSymbol));
               }
             }
-            // Captured by a local function defined above it: declared at the head of the block, assigned here.
+            // Captured by a local function defined above it, or used in another switch section: declared at the head of
+            // the block, with its default there, and assigned here.
             if (movedLocalVariables_.Count > 0 && movedLocalVariables_.TryGetValue(semanticModel_.GetDeclaredSymbol(variable), out var headBlock)) {
+              if (defaultValue != null) {
+                headBlock.AddHeadVariable(variableDeclarator.Identifier, defaultValue);
+                continue;
+              }
               headBlock.AddHeadVariable(variableDeclarator.Identifier);
               if (variableDeclarator.Initializer == null) {
                 continue;
               }
               variableDeclarator.IsLocalDeclaration = false;
+            } else if (defaultValue != null) {
+              variableDeclarator.Initializer = new LuaEqualsValueClauseSyntax(defaultValue);
             }
             variableListDeclaration.Variables.Add(variableDeclarator);
           }
