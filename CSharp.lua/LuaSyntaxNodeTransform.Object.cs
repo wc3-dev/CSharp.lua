@@ -2024,9 +2024,9 @@ namespace CSharpLua {
 
     /// <summary>
     /// The condition that target, a member read or a deconstructed element, matches a pattern inside a property or
-    /// positional pattern. It is one expression with no statement before it, so the member is read only when the conditions
-    /// before it hold, and read again for each part of the pattern. A variable can be declared only for an element held in a
-    /// local; a variable for a member, or a pattern that needs a statement, stops the compiler with an error.
+    /// positional pattern. It is one expression, so the member is read only when the conditions before it hold, and read
+    /// again for each part of the pattern. A variable for a member is read into a local before the condition, behind the
+    /// pattern's checks on the way to it (AddSubpatternVariable).
     /// </summary>
     private LuaExpressionSyntax BuildSubpatternExpression(LuaExpressionSyntax target, PatternSyntax pattern) {
       switch (pattern) {
@@ -2077,6 +2077,9 @@ namespace CSharpLua {
       }
     }
 
+    // The checks a property pattern makes on the way to the member it is at (not nil, of the pattern's type), innermost last.
+    private readonly List<LuaExpressionSyntax> patternChecks_ = new();
+
     private void AddSubpatternVariable(LuaExpressionSyntax target, VariableDesignationSyntax designation, PatternSyntax pattern) {
       if (designation == null || designation.IsKind(SyntaxKind.DiscardDesignation)) {
         return;
@@ -2085,7 +2088,41 @@ namespace CSharpLua {
         AddLocalVariableMapping(name, designation);
         return;
       }
-      throw new CompilationErrorException(pattern, $"the variable '{designation}' declared for a member in a property pattern is not supported; match the member in the pattern and read it in the code");
+      if (designation is not SingleVariableDesignationSyntax single) {
+        throw new CompilationErrorException(pattern, $"the variables '{designation}' declared for a member in a property pattern are not supported; declare one name");
+      }
+      if (IsInLoopCondition(pattern)) {
+        throw new CompilationErrorException(pattern, $"the variable '{designation}' declared for a member in a property pattern is not supported in a loop's condition, which would read the member once; read it in the loop's body");
+      }
+
+      // Lua has no assignment inside a condition: the member is read into a local before it, behind the checks on the way.
+      // Each such local has a name of its own, as two arms of a switch may declare the same name.
+      var local = GetTempIdentifier();
+      AddLocalVariableMapping(local, single);
+      CurBlock.AddStatement(new LuaLocalVariableDeclaratorSyntax(local));
+      LuaStatementSyntax read = local.Assignment(target);
+      if (patternChecks_.Count > 0) {
+        var ifStatement = new LuaIfStatementSyntax(patternChecks_.Aggregate((x, y) => x.And(y)));
+        ifStatement.Body.AddStatement(read);
+        read = ifStatement;
+      }
+      CurBlock.AddStatement(read);
+    }
+
+    private static bool IsInLoopCondition(SyntaxNode node) {
+      for (var child = node; child.Parent != null; child = child.Parent) {
+        switch (child.Parent) {
+          case WhileStatementSyntax loop:
+            return loop.Condition == child;
+          case DoStatementSyntax loop:
+            return loop.Condition == child;
+          case ForStatementSyntax loop:
+            return loop.Condition == child;
+          case StatementSyntax or AnonymousFunctionExpressionSyntax:
+            return false;
+        }
+      }
+      return false;
     }
 
     public override LuaSyntaxNode VisitIsPatternExpression(IsPatternExpressionSyntax node) {
