@@ -650,16 +650,11 @@ end
 Int32.IsPow2 = function (x) return x > 0 and isPow2(x) end
 UInt32.RotateLeft = rotateLeft
 UInt32.RotateRight = function (x, offset) return rotateLeft(x, -offset) end
-
-System.define("System.Numerics.BitOperations", {
-  PopCount = popCount,
-  LeadingZeroCount = leadingZeroCount,
-  TrailingZeroCount = trailingZeroCount,
-  Log2 = log2,
-  IsPow2 = isPow2,
-  RotateLeft = rotateLeft,
-  RotateRight = UInt32.RotateRight
-})
+UInt32.PopCount = popCount
+UInt32.LeadingZeroCount = leadingZeroCount
+UInt32.TrailingZeroCount = trailingZeroCount
+UInt32.Log2 = log2
+UInt32.IsPow2 = isPow2
 
 local Int64 = define("System.Int64", {
   Parse = function (s)
