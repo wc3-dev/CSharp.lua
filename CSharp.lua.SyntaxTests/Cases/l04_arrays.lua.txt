@@ -23,8 +23,8 @@ False
 0
 0
 # T10
-#! T10 Specified argument was out of the range of valid values. (Parameter 'index')
-T10 EXC
+ioor
+ioor2
 # T11
 9 True True False
 # T12

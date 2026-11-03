@@ -66,9 +66,11 @@ local function xpcallErr(e)
     e = System.Exception("script error")
     e:traceback()
   elseif type(e) == "string" then
-    if sfind(e, "attempt to index") then
+    -- A member, the length or a call of nil is a null reference; an integer % 0 a division by zero.
+    if sfind(e, "attempt to index") or sfind(e, "attempt to get length of a nil value") or sfind(e, "attempt to call a nil value %(local")
+      or sfind(e, "attempt to call a nil value %(upvalue") then
       e = System.NullReferenceException(e)
-    elseif sfind(e, "attempt to divide by zero") then
+    elseif sfind(e, "attempt to divide by zero") or sfind(e, "attempt to perform 'n%%0'") then
       e = System.DivideByZeroException(e)
     else
       e = System.Exception(e)
