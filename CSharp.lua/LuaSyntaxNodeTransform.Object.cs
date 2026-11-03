@@ -813,15 +813,17 @@ namespace CSharpLua {
       return functionExpress;
     }
 
-    private LuaStatementSyntax BuildCheckLoopControlInvocationExpression(LuaInvocationExpressionSyntax invocationExpression, LuaCheckLoopControlExpressionSyntax check) {
-      return BuildCheckLoopControlInvocationExpression(invocationExpression, check.HasReturn, check.HasBreak, check.HasContinue);
+    private LuaStatementSyntax BuildCheckLoopControlInvocationExpression(LuaInvocationExpressionSyntax invocationExpression, LuaCheckLoopControlExpressionSyntax check, SyntaxNode node) {
+      return BuildCheckLoopControlInvocationExpression(invocationExpression, check.HasReturn, check.HasBreak, check.HasContinue, node);
     }
 
-    private LuaStatementSyntax BuildCheckLoopControlInvocationExpression(LuaInvocationExpressionSyntax invocationExpression, IEnumerable<LuaCheckLoopControlExpressionSyntax> checks) {
-      return BuildCheckLoopControlInvocationExpression(invocationExpression, checks.Any(i => i.HasReturn), checks.Any(i => i.HasBreak), checks.Any(i => i.HasContinue));
+    private LuaStatementSyntax BuildCheckLoopControlInvocationExpression(LuaInvocationExpressionSyntax invocationExpression, IEnumerable<LuaCheckLoopControlExpressionSyntax> checks, SyntaxNode node) {
+      return BuildCheckLoopControlInvocationExpression(invocationExpression, checks.Any(i => i.HasReturn), checks.Any(i => i.HasBreak), checks.Any(i => i.HasContinue), node);
     }
 
-    private LuaStatementSyntax BuildCheckLoopControlInvocationExpression(LuaInvocationExpressionSyntax invocationExpression, bool hasReturn, bool hasBreak, bool hasContinue) {
+    // node is the C# statement the invocation is written for: a break or continue passed on from the function is passed on
+    // again when node is inside another function within the loop.
+    private LuaStatementSyntax BuildCheckLoopControlInvocationExpression(LuaInvocationExpressionSyntax invocationExpression, bool hasReturn, bool hasBreak, bool hasContinue, SyntaxNode node) {
       if (!hasReturn && !hasBreak && !hasContinue) {
         return invocationExpression;
       }
@@ -849,13 +851,14 @@ namespace CSharpLua {
 
       if (hasBreak || hasContinue) {
         var condition = status.EqualsEquals(LuaIdentifierLiteralExpressionSyntax.False);
+        LuaStatementSyntax exit = IsLoopExitInFunction(node, !hasBreak) ? new LuaReturnStatementSyntax(LuaIdentifierLiteralExpressionSyntax.False) : LuaBreakStatementSyntax.Instance;
         if (ifStatement != null) {
           var elseIfStatement = new LuaElseIfStatementSyntax(condition);
-          elseIfStatement.Body.AddStatement(LuaBreakStatementSyntax.Instance);
+          elseIfStatement.Body.AddStatement(exit);
           ifStatement.ElseIfStatements.Add(elseIfStatement);
         } else {
           ifStatement = new LuaIfStatementSyntax(condition);
-          ifStatement.Body.Statements.Add(LuaBreakStatementSyntax.Instance);
+          ifStatement.Body.Statements.Add(exit);
         }
       }
 
@@ -895,14 +898,14 @@ namespace CSharpLua {
         tryInvocationExpression.AddArgument(finallyFunctionExpress);
       }
 
-      return BuildCheckLoopControlInvocationExpression(tryInvocationExpression, tryExpresses);
+      return BuildCheckLoopControlInvocationExpression(tryInvocationExpression, tryExpresses, node);
     }
 
-    private LuaStatementSyntax BuildUsingStatement(List<LuaIdentifierNameSyntax> variableIdentifiers, List<LuaExpressionSyntax> variableExpressions, Action<LuaBlockSyntax> writeStatements) {
-      return  BuildUsingStatement(new LuaUsingAdapterExpressionSyntax(), variableIdentifiers, variableExpressions, writeStatements);
+    private LuaStatementSyntax BuildUsingStatement(List<LuaIdentifierNameSyntax> variableIdentifiers, List<LuaExpressionSyntax> variableExpressions, Action<LuaBlockSyntax> writeStatements, SyntaxNode node) {
+      return  BuildUsingStatement(new LuaUsingAdapterExpressionSyntax(), variableIdentifiers, variableExpressions, writeStatements, node);
     }
 
-    private LuaStatementSyntax BuildUsingStatement(LuaUsingAdapterExpressionSyntax usingAdapterExpress, List<LuaIdentifierNameSyntax> variableIdentifiers, List<LuaExpressionSyntax> variableExpressions, Action<LuaBlockSyntax> writeStatements) {
+    private LuaStatementSyntax BuildUsingStatement(LuaUsingAdapterExpressionSyntax usingAdapterExpress, List<LuaIdentifierNameSyntax> variableIdentifiers, List<LuaExpressionSyntax> variableExpressions, Action<LuaBlockSyntax> writeStatements, SyntaxNode node) {
       usingAdapterExpress.ParameterList.Parameters.AddRange(variableIdentifiers);
       PushFunction(usingAdapterExpress);
       var block = new LuaBlockSyntax();
@@ -914,12 +917,12 @@ namespace CSharpLua {
         var usingInvocationExpression = new LuaInvocationExpressionSyntax(LuaIdentifierNameSyntax.Using);
         usingInvocationExpression.AddArgument(variableExpressions.First());
         usingInvocationExpression.AddArgument(usingAdapterExpress);
-        return BuildCheckLoopControlInvocationExpression(usingInvocationExpression, usingAdapterExpress);
+        return BuildCheckLoopControlInvocationExpression(usingInvocationExpression, usingAdapterExpress, node);
       } else {
         var usingInvocationExpression = new LuaInvocationExpressionSyntax(LuaIdentifierNameSyntax.UsingX);
         usingInvocationExpression.AddArgument(usingAdapterExpress);
         usingInvocationExpression.ArgumentList.Arguments.AddRange(variableExpressions);
-        return BuildCheckLoopControlInvocationExpression(usingInvocationExpression, usingAdapterExpress);
+        return BuildCheckLoopControlInvocationExpression(usingInvocationExpression, usingAdapterExpress, node);
       }
     }
 
@@ -937,7 +940,7 @@ namespace CSharpLua {
         variableExpressions.Add(expression);
       }
 
-      return BuildUsingStatement(variableIdentifiers, variableExpressions, body => WriteStatementOrBlock(node.Statement, body));
+      return BuildUsingStatement(variableIdentifiers, variableExpressions, body => WriteStatementOrBlock(node.Statement, body), node);
     }
 
     private void ApplyUsingDeclarations(LuaBlockSyntax block, List<int> indexes, BlockSyntax node) {
@@ -962,10 +965,13 @@ namespace CSharpLua {
       var statements = block.Statements.Skip(lastIndex + 1);
       var usingAdapterExpress = new LuaUsingAdapterExpressionSyntax() {
         HasReturn = block.HasUsingReturn || node.Statements.Any(i => i.IsKind((SyntaxKind.ReturnStatement))),
+        HasBreak = block.HasUsingLoopExit,
       };
-      // The using declarations above this one still wrap it, so a return that passes on its function's is one of theirs.
+      // The using declarations above this one still wrap it, so a return, break or continue that passes on its function's
+      // is one of theirs.
       block.UsingDeclarations = position > 0 ? indexes : null;
-      var usingStatement = BuildUsingStatement(usingAdapterExpress, variableIdentifiers, variableExpressions, body => body.Statements.AddRange(statements));
+      var declaration = node.Statements.Where(IsUsingDeclaration).ElementAt(position);
+      var usingStatement = BuildUsingStatement(usingAdapterExpress, variableIdentifiers, variableExpressions, body => body.Statements.AddRange(statements), declaration);
       block.UsingDeclarations = null;
       block.Statements.RemoveRange(indexes[position]);
       block.AddStatement(usingStatement);
