@@ -8,7 +8,7 @@ namespace CSharpLua.Tests {
   /// stopped the compiler. A case label's pattern is now written as an is expression's is, a pattern inside a property or
   /// positional pattern is checked as one, a property pattern does not match null, and a relational pattern checks a value
   /// that can be nil or of another type first. An is expression's positional pattern declares the locals it reads (on a
-  /// value type). A variable declared for a member stops the compiler with an error.
+  /// value type). A variable declared for a member is PropertyPatternNamesTests'.
   /// </summary>
   [TestClass]
   public class SwitchStatementPatternTests {
@@ -29,21 +29,6 @@ namespace CSharpLua.Tests {
         + "low. high. .\n"
         + "True True True True | False False False False\n",
         output);
-    }
-
-    [TestMethod]
-    public void TestAVariableForAMemberIsAnError() {
-      var code = @"
-class Box { public int X; }
-class Program {
-  static void Main() {
-    switch (new Box()) {
-      case { X: var x }: System.Console.WriteLine(x); break;
-    }
-  }
-}";
-      var e = Assert.ThrowsException<CompilationErrorException>(() => Compiler.CompileSingleCodeForGame(code));
-      Assert.IsTrue(e.Message.Contains("the variable 'x' declared for a member in a property pattern is not supported"), e.Message);
     }
   }
 }
