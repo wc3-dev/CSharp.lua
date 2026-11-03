@@ -1,4 +1,3 @@
-whole file: REFUSED SourceLocation(Case.cs@12:67)"(1, 2)": a positional pattern on a value that can be null is not supported here; match its properties ({ X: 1 }) or use a switch statement, please refactor your code.
 # T1
 True
 False
@@ -19,7 +18,9 @@ True True True True
 one char s
 not int
 # T7
-REFUSED SourceLocation(Case.cs@6:67)"(1, 2)": a positional pattern on a value that can be null is not supported here; match its properties ({ X: 1 }) or use a switch statement, please refactor your code.
+True
+2
+3
 # T8
 True
 True
