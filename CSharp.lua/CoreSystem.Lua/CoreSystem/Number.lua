@@ -575,6 +575,81 @@ local UInt32 = define("System.UInt32", {
 })
 setmetatable(UInt32, Int)
 
+-- Bits of a 32-bit integer. The game's Lua has 32-bit integers, where the masks change nothing; the desktop's has 64.
+local function toInt32(x)
+  x = x & 0xFFFFFFFF
+  if x >= 0x80000000 then
+    x = x - 0x100000000
+  end
+  return x
+end
+
+local function rotateLeft(x, offset)
+  local u, n = x & 0xFFFFFFFF, offset & 31
+  return ((u << n) | (u >> (32 - n))) & 0xFFFFFFFF
+end
+
+local function popCount(x)
+  local u, count = x & 0xFFFFFFFF, 0
+  while u ~= 0 do
+    u = u & (u - 1)
+    count = count + 1
+  end
+  return count
+end
+
+local function leadingZeroCount(x)
+  local u = x & 0xFFFFFFFF
+  for i = 31, 0, -1 do
+    if (u >> i) & 1 == 1 then
+      return 31 - i
+    end
+  end
+  return 32
+end
+
+local function trailingZeroCount(x)
+  local u = x & 0xFFFFFFFF
+  for i = 0, 31 do
+    if (u >> i) & 1 == 1 then
+      return i
+    end
+  end
+  return 32
+end
+
+local function log2(x)
+  return 31 - leadingZeroCount(x | 1)
+end
+
+local function isPow2(x)
+  x = x & 0xFFFFFFFF
+  return x ~= 0 and x & (x - 1) == 0
+end
+
+Int32.RotateLeft = function (x, offset) return toInt32(rotateLeft(x, offset)) end
+Int32.RotateRight = function (x, offset) return toInt32(rotateLeft(x, -offset)) end
+Int32.PopCount = popCount
+Int32.LeadingZeroCount = leadingZeroCount
+Int32.TrailingZeroCount = trailingZeroCount
+Int32.Log2 = function (x)
+  if x < 0 then throw(System.ArgumentOutOfRangeException("value")) end
+  return log2(x)
+end
+Int32.IsPow2 = function (x) return x > 0 and isPow2(x) end
+UInt32.RotateLeft = rotateLeft
+UInt32.RotateRight = function (x, offset) return rotateLeft(x, -offset) end
+
+System.define("System.Numerics.BitOperations", {
+  PopCount = popCount,
+  LeadingZeroCount = leadingZeroCount,
+  TrailingZeroCount = trailingZeroCount,
+  Log2 = log2,
+  IsPow2 = isPow2,
+  RotateLeft = rotateLeft,
+  RotateRight = UInt32.RotateRight
+})
+
 local Int64 = define("System.Int64", {
   Parse = function (s)
     return parseIntWithException(s, (-9223372036854775807 - 1), 9223372036854775807)

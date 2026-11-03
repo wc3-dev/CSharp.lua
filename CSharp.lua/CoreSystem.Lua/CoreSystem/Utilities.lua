@@ -38,6 +38,54 @@ define("System.Environment", {
   end
 })
 
+-- The same on every machine, so a map's hashes agree in multiplayer; .NET seeds its own anew for each run.
+local function hashOf(value, T)
+  if value == nil then
+    return 0
+  end
+  local h = System.EqualityComparer(T).getDefault():GetHashCodeOf(value) // 1
+  return math.tointeger(h) or 0
+end
+
+local function mix(h, value)
+  h = (h * 31 + value) & 0xFFFFFFFF
+  if h >= 0x80000000 then
+    h = h - 0x100000000
+  end
+  return h
+end
+
+local HashCode
+HashCode = System.defStc("System.HashCode", {
+  hash = 17,
+  __ctor__ = function (this)
+    this.hash = 17
+  end,
+  -- (value, T) or (value, comparer, T)
+  Add = function (this, value, ...)
+    local comparer, T = ...
+    if select("#", ...) == 1 then
+      T, comparer = comparer, nil
+    end
+    this.hash = mix(this.hash, comparer and comparer:GetHashCodeOf(value) or hashOf(value, T))
+  end,
+  ToHashCode = function (this)
+    return this.hash
+  end,
+  -- (value1, ..., valueN, T1, ..., TN)
+  Combine = function (...)
+    local n = select("#", ...) // 2
+    local h = 17
+    for i = 1, n do
+      h = mix(h, hashOf((select(i, ...)), (select(n + i, ...))))
+    end
+    return h
+  end,
+  default = function ()
+    return HashCode()
+  end
+})
+
 define("System.GC", {
   Collect = function ()
     collectgarbage("collect")
