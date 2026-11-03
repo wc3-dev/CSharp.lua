@@ -2,7 +2,8 @@ using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace CSharpLua.SyntaxTests {
   /// <summary>
-  /// Number formats, standard and custom, as .NET writes them in the invariant culture (decision 120): each prints in
+  /// Number formats, standard and custom, as .NET writes them in the invariant culture with 50% for a percent (decision
+  /// 120): each prints in
   /// Lua what it prints on .NET. A float's standard format rounds its exact value, a tie to even; an int's, and every
   /// custom format, round half away from zero.
   /// </summary>
@@ -27,6 +28,14 @@ foreach (var i in new[] { 0, 5, -5, 255, -1, 1235, 1225, 25, -1234567, int.MaxVa
   Console.WriteLine(i.ToString(""D"") + "" "" + i.ToString(""D3"") + "" "" + i.ToString(""X"") + "" "" + i.ToString(""x4"") + "" | ""
     + i.ToString(""N"") + "" "" + i.ToString(""N0"") + "" "" + i.ToString(""F2"") + "" "" + i.ToString(""P0"") + "" | ""
     + i.ToString(""E2"") + "" "" + i.ToString(""G1"") + "" "" + i.ToString(""G3"") + "" "" + i.ToString(""G""));
+}");
+    }
+
+    [TestMethod]
+    public void TestBinaryFormat() {
+      SameAsNet.Prints(@"
+foreach (var i in new[] { 0, 10, 255, -1, int.MinValue }) {
+  Console.WriteLine(i.ToString(""B"") + "" "" + i.ToString(""B8"") + "" "" + i.ToString(""b4""));
 }");
     }
 

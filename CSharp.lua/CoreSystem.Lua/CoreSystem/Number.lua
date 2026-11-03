@@ -58,7 +58,8 @@ local function numberToString(this)
   return s
 end
 
--- Number formats, as .NET writes them in the invariant culture. A float's standard format rounds its exact value,
+-- Number formats, as .NET writes them in the invariant culture, but 50% without a space, as the game writes it (Sven,
+-- 11-03). A float's standard format rounds its exact value,
 -- a tie to even, as string.format does; an int's, and every custom format, round half away from zero.
 
 -- The game's numbers are 32-bit floats, of which .NET reads 7 digits for a custom format, as of a float; 15 of a double.
@@ -175,7 +176,7 @@ end
 local function standardFormat(x, letter, precision)
   local kind = letter:upper()
   local minus = isNegative(x) and "-" or ""
-  if kind == "D" or kind == "X" then
+  if kind == "D" or kind == "X" or kind == "B" then
     if mtype(x) ~= "integer" then
       throw(FormatException())
     end
@@ -183,7 +184,17 @@ local function standardFormat(x, letter, precision)
     if kind == "D" then
       s = fixed(x, 0)
     else
-      s = sformat(letter == "X" and "%X" or "%x", x < 0 and x & 0xFFFFFFFF or x)
+      local u = x < 0 and x & 0xFFFFFFFF or x
+      if kind == "X" then
+        s = sformat(letter == "X" and "%X" or "%x", u)
+      else
+        local bits = {}
+        repeat
+          bits[#bits + 1] = u & 1 == 1 and "1" or "0"
+          u = u >> 1
+        until u == 0
+        s = tconcat(bits):reverse()
+      end
       minus = ""
     end
     if precision and #s < precision then
@@ -196,7 +207,7 @@ local function standardFormat(x, letter, precision)
       int = group(int)
     end
     local s = minus .. int .. (frac ~= "" and "." .. frac or "")
-    return kind == "P" and s .. " %" or s
+    return kind == "P" and s .. "%" or s
   elseif kind == "E" then
     precision = precision or 6
     local digits, exponent = significant(x, precision + 1)
