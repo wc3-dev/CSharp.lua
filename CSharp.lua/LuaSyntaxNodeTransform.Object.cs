@@ -1521,7 +1521,7 @@ namespace CSharpLua {
       for (int i = 0; i < statements.Count; ++i) {
         if (statements[i] is LocalFunctionStatementSyntax localFunction) {
           var symbol = (IMethodSymbol)semanticModel_.GetDeclaredSymbol(localFunction);
-          if (!IsLocalFunctionOfType(localFunction, symbol)) {
+          if (!IsLocalFunctionOfType(localFunction, symbol) && !switchLocalFunctions_.Contains(symbol)) {
             functions.Add((symbol, i, localFunction));
           }
         }
@@ -1605,6 +1605,72 @@ namespace CSharpLua {
         block.AddHeadVariable(GetLocalMethodName(symbol, node));
       }
       return definitions;
+    }
+
+    private readonly HashSet<ISymbol> switchLocalFunctions_ = new(SymbolEqualityComparer.Default);
+
+    /// <summary>
+    /// C# gives a switch's sections one scope, but each section is a block of its own in Lua, where a local function of one
+    /// section is not seen from another section or from a case label. A local function used outside its section, and the
+    /// local functions of the sections it calls, are declared above the sections in <paramref name="body"/> and assigned
+    /// there.
+    /// </summary>
+    private void MoveSwitchLocalFunctions(SwitchStatementSyntax node, LuaBlockSyntax body) {
+      var functions = new Dictionary<IMethodSymbol, (LocalFunctionStatementSyntax Node, SwitchSectionSyntax Section)>(SymbolEqualityComparer.Default);
+      foreach (var section in node.Sections) {
+        foreach (var function in section.Statements.OfType<LocalFunctionStatementSyntax>()) {
+          var symbol = (IMethodSymbol)semanticModel_.GetDeclaredSymbol(function);
+          if (!IsLocalFunctionOfType(function, symbol)) {
+            functions.Add(symbol, (function, section));
+          }
+        }
+      }
+      if (functions.Count == 0) {
+        return;
+      }
+
+      IEnumerable<(IMethodSymbol Symbol, SimpleNameSyntax Name)> Uses(SyntaxNode within) {
+        foreach (var name in within.DescendantNodes().OfType<SimpleNameSyntax>()) {
+          if (semanticModel_.GetSymbolInfo(name).Symbol is IMethodSymbol { MethodKind: MethodKind.LocalFunction } method
+            && functions.ContainsKey(method.OriginalDefinition)) {
+            yield return (method.OriginalDefinition, name);
+          }
+        }
+      }
+
+      var pending = new Stack<IMethodSymbol>();
+      foreach (var (symbol, name) in Uses(node)) {
+        if (!functions[symbol].Section.Statements.Any(i => i.Span.Contains(name.Span))) {
+          pending.Push(symbol);
+        }
+      }
+      var moved = new List<IMethodSymbol>();
+      while (pending.Count > 0) {
+        var symbol = pending.Pop();
+        if (!moved.Contains(symbol, SymbolEqualityComparer.Default)) {
+          moved.Add(symbol);
+          foreach (var (used, _) in Uses(functions[symbol].Node)) {
+            pending.Push(used);
+          }
+        }
+      }
+
+      foreach (var symbol in moved.OrderBy(i => functions[i].Node.SpanStart)) {
+        var function = functions[symbol].Node;
+        foreach (var name in function.DescendantNodes().OfType<IdentifierNameSyntax>()) {
+          if (semanticModel_.GetSymbolInfo(name).Symbol is ILocalSymbol local) {
+            var declaration = local.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax();
+            if (declaration != null && !function.Span.Contains(declaration.Span) && node.Sections.Any(i => i.Span.Contains(declaration.Span))) {
+              throw new CompilationErrorException(name, $"the local function '{symbol.Name}' is used outside its switch section and uses '{local.Name}', which is declared in a section; declare '{local.Name}' above the switch");
+            }
+          }
+        }
+        var definitions = new LuaStatementListSyntax();
+        body.AddStatement(definitions);
+        movedLocalFunctions_[symbol] = definitions;
+        switchLocalFunctions_.Add(symbol);
+        body.AddHeadVariable(GetLocalMethodName(symbol, function));
+      }
     }
 
     public override LuaSyntaxNode VisitLocalFunctionStatement(LocalFunctionStatementSyntax node) {
