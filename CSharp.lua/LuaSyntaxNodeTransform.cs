@@ -3057,7 +3057,7 @@ namespace CSharpLua {
         }
       }
 
-      if (IsInternalNode(node) && generator_.IsMoreThanUpValueStaticCtorField(symbol)) {
+      if ((IsInternalNode(node) && generator_.IsMoreThanUpValueStaticCtorField(symbol)) || (isPrivate && IsMoreThanLocalVariables(symbol))) {
         return LuaIdentifierNameSyntax.MoreManyLocalVarTempTable.MemberAccess(name);
       }
 

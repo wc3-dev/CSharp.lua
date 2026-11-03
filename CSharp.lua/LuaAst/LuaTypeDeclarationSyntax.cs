@@ -253,7 +253,20 @@ namespace CSharpLua.LuaAst {
       if (isStatic) {
         if (isPrivate) {
           local_.Variables.Add(name);
-          if (value != null) {
+          // Past Lua's 200 locals the field is kept in the table of the members that do not fit, and read from it.
+          if (isMoreThanLocalVariables) {
+            if (value == null) {
+              local_.Variables.RemoveAtLast();
+              CheckTooManyVariables(true);
+            } else if (isImmutable) {
+              methodList_.Statements.Add(BuildTooManyVariablesAssignment(name, value, true));
+            } else {
+              if (statements != null) {
+                staticInitStatements_.AddRange(statements);
+              }
+              staticInitStatements_.Add(BuildTooManyVariablesAssignment(name, value, true));
+            }
+          } else if (value != null) {
             var assignment = name.Assignment(value);
             if (isImmutable) {
               methodList_.Statements.Add(assignment);
@@ -261,8 +274,8 @@ namespace CSharpLua.LuaAst {
               if (statements != null) {
                 staticInitStatements_.AddRange(statements);
               }
-              if (isMoreThanLocalVariables || isMoreThanUpValueStaticInit) {
-                var variablesAssignment = BuildTooManyVariablesAssignment(name, value, isMoreThanLocalVariables);
+              if (isMoreThanUpValueStaticInit) {
+                var variablesAssignment = BuildTooManyVariablesAssignment(name, value, false);
                 staticInitStatements_.Add(variablesAssignment);
               } else {
                 staticInitStatements_.Add(assignment);
