@@ -1331,7 +1331,22 @@ Array = {
   getIsFixedSize = trueFn,
   getRank = System.oneFn,
   Add = unset,
-  Clear = unset,
+  -- A Span made from a whole array is the array, so Span's Clear and ToArray are an array's too.
+  Clear = function (t)
+    local default = t.__genericT__:default()
+    local isStruct = type(default) == "table"
+    for i = 1, #t do
+      t[i] = isStruct and t.__genericT__:default() or (default == nil and null or default)
+    end
+  end,
+  ToArray = function (t)
+    local copy = {}
+    for i = 1, #t do
+      local v = t[i]
+      copy[i] = type(v) == "table" and v ~= null and t.__genericT__.class == "S" and v:__clone__() or v
+    end
+    return arrayFromTable(copy, t.__genericT__)
+  end,
   Insert = unset,
   Remove = unset,
   RemoveAt = unset,
@@ -1384,7 +1399,13 @@ Array = {
         throw(ArgumentOutOfRangeException("count"))
       end
     end
-    fill(t, startIndex + 1, startIndex + count, value)
+    if t.__genericT__.class == "S" and type(value) == "table" then
+      for i = startIndex + 1, startIndex + count do
+        t[i] = value:__clone__()
+      end
+    else
+      fill(t, startIndex + 1, startIndex + count, value == nil and null or value)
+    end
   end,
   Find = function (t, match)
     if t == nil then throw(ArgumentNullException("array")) end

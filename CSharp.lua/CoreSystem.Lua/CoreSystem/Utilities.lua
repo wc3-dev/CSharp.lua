@@ -38,6 +38,170 @@ define("System.Environment", {
   end
 })
 
+-- Bits as booleans, the first at index 0; And, Or, Xor, Not and the shifts change it and give it back.
+local BitArray
+local function checkSameLength(this, other)
+  if other == nil then throw(ArgumentNullException("value")) end
+  if other.length ~= this.length then throw(System.ArgumentException("value")) end
+end
+
+local function bitArrayEnumerator(this)
+  local bits, length, index = this.bits, this.length, 0
+  local en = {}
+  function en.MoveNext()
+    if index < length then
+      index = index + 1
+      en.current = bits[index]
+      return true
+    end
+    return false
+  end
+  function en.getCurrent()
+    return en.current
+  end
+  en.Dispose = System.emptyFn
+  return en
+end
+
+BitArray = define("System.BitArray", {
+  base = function ()
+    return { System.ICollection, System.ICloneable }
+  end,
+  -- (length), (length, value), (bool[]), (byte[] or int[], 8 or 32 bits each) or (BitArray)
+  __ctor__ = function (this, value, defaultValue)
+    local bits, length = {}, 0
+    if type(value) == "number" then
+      if value < 0 then throw(System.ArgumentOutOfRangeException("length")) end
+      length = value
+      for i = 1, length do
+        bits[i] = defaultValue == true
+      end
+    elseif getmetatable(value) == BitArray then
+      length = value.length
+      for i = 1, length do
+        bits[i] = value.bits[i]
+      end
+    else
+      if value == nil then throw(ArgumentNullException("values")) end
+      local T = value.__genericT__
+      if T == System.Boolean then
+        length = #value
+        for i = 1, length do
+          bits[i] = value:get(i - 1)
+        end
+      else
+        local width = T == System.Byte and 8 or 32
+        for i = 1, #value do
+          local v = value:get(i - 1) & 0xFFFFFFFF
+          for b = 0, width - 1 do
+            length = length + 1
+            bits[length] = (v >> b) & 1 == 1
+          end
+        end
+      end
+    end
+    this.bits, this.length = bits, length
+  end,
+  get = function (this, index)
+    if index < 0 or index >= this.length then throw(System.ArgumentOutOfRangeException("index")) end
+    return this.bits[index + 1]
+  end,
+  set = function (this, index, value)
+    if index < 0 or index >= this.length then throw(System.ArgumentOutOfRangeException("index")) end
+    this.bits[index + 1] = value
+  end,
+  Get = function (this, index)
+    return this:get(index)
+  end,
+  Set = function (this, index, value)
+    this:set(index, value)
+  end,
+  getLength = function (this)
+    return this.length
+  end,
+  setLength = function (this, value)
+    if value < 0 then throw(System.ArgumentOutOfRangeException("value")) end
+    local bits = this.bits
+    for i = this.length + 1, value do
+      bits[i] = false
+    end
+    for i = value + 1, this.length do
+      bits[i] = nil
+    end
+    this.length = value
+  end,
+  getCount = function (this)
+    return this.length
+  end,
+  SetAll = function (this, value)
+    for i = 1, this.length do
+      this.bits[i] = value
+    end
+  end,
+  And = function (this, other)
+    checkSameLength(this, other)
+    for i = 1, this.length do
+      this.bits[i] = this.bits[i] and other.bits[i]
+    end
+    return this
+  end,
+  Or = function (this, other)
+    checkSameLength(this, other)
+    for i = 1, this.length do
+      this.bits[i] = this.bits[i] or other.bits[i]
+    end
+    return this
+  end,
+  Xor = function (this, other)
+    checkSameLength(this, other)
+    for i = 1, this.length do
+      this.bits[i] = this.bits[i] ~= other.bits[i]
+    end
+    return this
+  end,
+  Not = function (this)
+    for i = 1, this.length do
+      this.bits[i] = not this.bits[i]
+    end
+    return this
+  end,
+  -- Toward higher indexes; the lowest count bits become false.
+  LeftShift = function (this, count)
+    local bits, length = this.bits, this.length
+    for i = length, 1, -1 do
+      bits[i] = i > count and bits[i - count] or false
+    end
+    return this
+  end,
+  RightShift = function (this, count)
+    local bits, length = this.bits, this.length
+    for i = 1, length do
+      bits[i] = i + count <= length and bits[i + count] or false
+    end
+    return this
+  end,
+  HasAllSet = function (this)
+    for i = 1, this.length do
+      if not this.bits[i] then
+        return false
+      end
+    end
+    return true
+  end,
+  HasAnySet = function (this)
+    for i = 1, this.length do
+      if this.bits[i] then
+        return true
+      end
+    end
+    return false
+  end,
+  Clone = function (this)
+    return BitArray(this)
+  end,
+  GetEnumerator = bitArrayEnumerator
+})
+
 define("System.GC", {
   Collect = function ()
     collectgarbage("collect")
