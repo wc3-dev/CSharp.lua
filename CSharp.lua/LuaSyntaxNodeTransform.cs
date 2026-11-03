@@ -5480,7 +5480,7 @@ namespace CSharpLua {
           hasCast = true;
         }
       }
-      if (hasCast) {
+      if (hasCast && !IsIgnoredClass(targetType)) {
         var cast = new LuaInvocationExpressionSyntax(LuaIdentifierNameSyntax.Cast, GetTypeName(targetType), identifier);
         forInStatement.Body.AddStatement(identifier.Assignment(cast));
       }
@@ -5950,7 +5950,7 @@ namespace CSharpLua {
         return expression;
       }
 
-      if (originalType.Is(targetType)) {
+      if (originalType.Is(targetType) || IsIgnoredClass(targetType)) {
         return expression;
       }
 
@@ -5970,6 +5970,13 @@ namespace CSharpLua {
       }
 
       return BuildCastExpression(targetType, expression);
+    }
+
+    // A class marked @CSharpLua.Ignore is given by someone else, such as the type of a game's own values (userdata), which
+    // carry no CSharp.lua class to check, so a cast to one checks nothing.
+    private bool IsIgnoredClass(ITypeSymbol type) {
+      return type.TypeKind == TypeKind.Class
+        && type.DeclaringSyntaxReferences.Any(i => generator_.HasCSharpLuaAttribute(i.GetSyntax(), LuaDocumentStatement.AttributeFlags.Ignore));
     }
 
     private LuaExpressionSyntax BuildCastExpression(ITypeSymbol type, LuaExpressionSyntax expression) {
