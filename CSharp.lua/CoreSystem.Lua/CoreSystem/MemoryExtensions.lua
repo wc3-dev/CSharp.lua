@@ -19,12 +19,27 @@ local Span = System.Span
 local Array = System.Array
 
 System.MemoryExtensions = {
-  AsSpan = function (array) 
-    if type(array) == "string" then
-      return array
+  -- (text or array), and with a start, an Index (a number, negative from the end) or a Range; a type argument may follow.
+  AsSpan = function (array, from)
+    if type(from) == "table" and getmetatable(from) ~= System.Range then
+      from = nil
     end
-    local SpanT = Span(array.__genericT__)
-    return SpanT(array)
+    if from == nil then
+      if type(array) == "string" then
+        return array
+      end
+      local SpanT = Span(array.__genericT__)
+      return SpanT(array)
+    end
+    local length, start, count = #array
+    if type(from) == "table" then
+      local bounds = from:GetOffsetAndLength(length)
+      start, count = bounds[1], bounds[2]
+    else
+      start = System.Index.GetOffset(from, length)
+      count = length - start
+    end
+    return System.MemoryExtensions.AsBoundedSpan(array, start, count)
   end,
   AsBoundedSpan = function (array, start, length) 
     if type(array) == "string" then
