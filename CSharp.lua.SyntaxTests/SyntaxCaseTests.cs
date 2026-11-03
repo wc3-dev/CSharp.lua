@@ -23,7 +23,10 @@ namespace CSharpLua.SyntaxTests {
     private static readonly bool Recording = Environment.GetEnvironmentVariable("CSHARPLUA_RECORD") == "1";
 
     // Tests whose lines change from run to run, which are run but not compared. "" is a case's lines before its first test.
-    private static readonly Dictionary<string, string[]> Unsteady = new();
+    private static readonly Dictionary<string, string[]> Unsteady = new() {
+      // The first pair of a dictionary of strings: Lua keeps no order of insertion, and seeds its string hash anew each run.
+      ["l02_dictionary"] = new[] { "T12" },
+    };
 
     [TestMethod]
     public void TestEachCasePrintsWhatWasRecorded() {
