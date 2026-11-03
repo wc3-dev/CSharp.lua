@@ -20,8 +20,8 @@ to ignored classes, switch expression arm patterns, tuples, structs read from co
 indexes, enums as text, exceptions caught by type and catch filters, params collections, chars and enums given as
 objects, an overridable property read in its own class, locals shared by switch sections, structs given back through
 out arguments, out arguments in a conditional's branch, private static fields past Lua's 200 locals, number formats,
-and the members of collections, LINQ, StringBuilder, char, string, Math, Convert, BitOperations, HashCode,
-StringComparer, BitArray and Span the core lacked. Each change is in the history of the moonwell-package branch.
+the members of collections, LINQ, StringBuilder, char, string, Math, Convert, BitOperations, HashCode,
+StringComparer, BitArray and Span the core lacked, and AsSpan from a start, an index or a range. Each change is in the history of the moonwell-package branch.
 
 CSharp.lua/CSharp.lua.csproj
 CSharp.lua/Compiler.cs
