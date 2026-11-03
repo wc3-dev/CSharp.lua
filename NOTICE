@@ -12,8 +12,13 @@ loops left early, continue inside a switch, fields named as a base class's priva
 integer in Warcraft III's Lua, numbers written in the culture of the machine, local functions used above their
 declaration, returns after a using declaration, nullable structs compared with null, the negation of a negative constant,
 patterns in a switch statement's case labels, the core's Deg2Rad and Rad2Deg, which were swapped, a conditional added
-to an element or a property, a type's name in a pattern, and the order the core disposes several values. Each change is
-in the history of the moonwell-package branch.
+to an element or a property, a type's name in a pattern, the order the core disposes several values, a method group in
+a conditional, long constant string locals, positional patterns, local functions in switch sections, break and continue
+after a using declaration, small integers that wrap, checked arithmetic, private indexers, LINQ that stops early, casts
+to ignored classes, switch expression arm patterns, tuples, structs read from collections, string calls, user-defined
+++ and --, operator true and false, derived records, with on anonymous types, ref locals of elements, ranges and
+indexes, enums as text, exceptions caught by type and catch filters, params collections, and chars and enums given as
+objects. Each change is in the history of the moonwell-package branch.
 
 CSharp.lua/CSharp.lua.csproj
 CSharp.lua/Compiler.cs
@@ -36,6 +41,7 @@ CSharp.lua/System.xml
 CSharp.lua/Utils.cs
 CSharp.lua/CoreSystem.Lua/CoreSystem/Array.lua
 CSharp.lua/CoreSystem.Lua/CoreSystem/Collections/Linq.lua
+CSharp.lua/CoreSystem.Lua/CoreSystem/Collections/List.lua
 CSharp.lua/CoreSystem.Lua/CoreSystem/Core.lua
 CSharp.lua/CoreSystem.Lua/CoreSystem/Enum.lua
 CSharp.lua/CoreSystem.Lua/CoreSystem/Math.lua
