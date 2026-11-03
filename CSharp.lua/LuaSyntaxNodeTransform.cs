@@ -4015,7 +4015,7 @@ namespace CSharpLua {
         switchStatement.Temp = temp;
         switchStatement.Body.Statements.Add(new LuaLocalVariableDeclaratorSyntax(temp, expression));
       }
-      MoveSwitchLocalFunctions(node, switchStatement.Body);
+      MoveSwitchLocals(node, switchStatement.Body, MoveSwitchLocalFunctions(node, switchStatement.Body));
       switchStatement.Fill(node.Sections.Select(i => i.Accept<LuaStatementSyntax>(this)));
       PopBlock();
       switches_.Pop();
