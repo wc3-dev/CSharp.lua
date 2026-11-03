@@ -1221,6 +1221,13 @@ namespace CSharpLua {
       if (symbol != null) {
         var arguments = BuildArgumentList(symbol, symbol.Parameters, node.ArgumentList);
         propertyAdapter.ArgumentList.AddArguments(arguments);
+        // An index from the end on an indexer of an int (a string's, a List's) is the count less it, as on an array.
+        if (node.ArgumentList.Arguments.Count == 1 && symbol.Parameters.Length == 1 && symbol.Parameters[0].Type.SpecialType == SpecialType.System_Int32) {
+          var arg = node.ArgumentList.Arguments.First().Expression;
+          if (semanticModel_.GetTypeInfo(arg).Type.IsSystemIndex()) {
+            UpdateIndexArgumentExpression(node.Expression, propertyAdapter, arg.IsKind(SyntaxKind.IndexExpression));
+          }
+        }
       } else {
         var argumentList = node.ArgumentList.Accept<LuaArgumentListSyntax>(this);
         propertyAdapter.ArgumentList.Arguments.AddRange(argumentList.Arguments);
@@ -1254,6 +1261,13 @@ namespace CSharpLua {
 
     public override LuaSyntaxNode VisitElementAccessExpression(ElementAccessExpressionSyntax node) {
       var symbol = semanticModel_.GetSymbolInfo(node).Symbol;
+      // source[range] of an array, or of a type C# reads with its Substring or Slice: the core slices it.
+      if (symbol is null or { Kind: SymbolKind.Method } && node.ArgumentList.Arguments.Count == 1
+        && semanticModel_.GetTypeInfo(node.ArgumentList.Arguments[0].Expression).Type is { Name: "Range", ContainingNamespace.Name: "System" }) {
+        var source = node.Expression.AcceptExpression(this);
+        var range = node.ArgumentList.Arguments[0].Expression.AcceptExpression(this);
+        return LuaIdentifierNameSyntax.Range.MemberAccess("slice").Invocation(source, range);
+      }
       if (symbol?.Kind == SymbolKind.Method) {
         var typeSymbol = semanticModel_.GetTypeInfo(node.Expression).Type;
         IPropertySymbol propertySymbol;
