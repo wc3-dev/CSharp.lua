@@ -29,6 +29,8 @@ namespace CSharpLua.LuaAst {
     public bool HasUsingDeclarations => UsingDeclarations != null;
     // A return inside the functions its using declarations become, which the callers of those functions pass on.
     public bool HasUsingReturn;
+    // The same for a break or continue of a loop around the block.
+    public bool HasUsingLoopExit;
 
     internal void AddHeadVariable(LuaIdentifierNameSyntax name) {
       if (headVariables_ == null) {

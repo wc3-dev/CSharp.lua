@@ -47,8 +47,10 @@ local type = type
 local tonumber = tonumber
 local String
 
-local function toString(t, isch, format)
-  if isch then return char(t) end
+-- A value as text, by the type of the sequence it is in: a char is its character, an enum its name.
+local function toString(t, T, format)
+  if T == Char then return char(t) end
+  if T and T.class == "E" then return System.EnumToString(t, T, format) end
   return systemToString(t, format)
 end
 
@@ -183,9 +185,9 @@ local function concat(...)
   if len == 1 then
     local v = ...
     if System.isEnumerableLike(v) then
-      local isch = v.__genericT__ == Char
+      local T = v.__genericT__
       for _, v in System.each(v) do
-        t[count] = toString(v, isch)
+        t[count] = toString(v, T)
         count = count + 1
       end
     else
@@ -317,12 +319,12 @@ local function joinEnumerable(separator, values)
   if type(separator) == "number" then
     separator = char(separator)
   end
-  local isch = values.__genericT__ == Char
+  local T = values.__genericT__
   local t = {}
   local len = 1
   for _, v in System.each(values) do
     if v ~= nil then
-      t[len] = toString(v, isch)
+      t[len] = toString(v, T)
       len = len + 1
     end
   end
@@ -393,8 +395,9 @@ local function compareToObj(this, v)
   return compare(this, v)
 end
 
+-- Every character Lua's patterns give a meaning to: a separator "--" was a lazy repeat, which matches nothing forever.
 local function escape(s)
-  return gsub(s, "([%%%^%.])", "%%%1")
+  return gsub(s, "([%^%$%(%)%%%.%[%]%*%+%-%?])", "%%%1")
 end
 
 local function contains(this, value, comparisonType)
@@ -426,7 +429,20 @@ local function copyTo(this, sourceIndex, destination, destinationIndex, count)
   end
 end
 
-local function endsWith(this, suffix)
+-- A char is its number, and a comparison is a StringComparison (odd ignores case) or a bool (ignoreCase).
+local function prefixArguments(this, value, comparison)
+  if value == nil then throw(ArgumentNullException("value")) end
+  if type(value) == "number" then
+    value = char(value)
+  end
+  if comparison == true or (type(comparison) == "number" and comparison % 2 ~= 0) then
+    return lower(this), lower(value)
+  end
+  return this, value
+end
+
+local function endsWith(this, suffix, comparison)
+  this, suffix = prefixArguments(this, suffix, comparison)
   return suffix == "" or sub(this, -#suffix) == suffix
 end
 
@@ -661,7 +677,8 @@ local function split(this, strings, count, options)
   return System.arrayFromTable(t, String)
 end
 
-local function startsWith(this, prefix)
+local function startsWith(this, prefix, comparison)
+  this, prefix = prefixArguments(this, prefix, comparison)
   return sub(this, 1, #prefix) == prefix
 end
 
@@ -818,6 +835,8 @@ else
 
   String = getmetatable("")
   String.__genericT__ = System.Char
+  -- A string reads its members from string, so LINQ finds its element type there.
+  string.__genericT__ = System.Char
   String.base = inherits
   System.define("System.String", String)
   String.__index = string

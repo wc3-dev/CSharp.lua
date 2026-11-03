@@ -68,6 +68,23 @@ limitations under the License.
           <arg type="System.String[]" />
           <arg type="System.StringSplitOptions" />
         </method>
+        <method name="Split" Template="{this}:Split({0}, nil, {1})">
+          <arg type="System.String" />
+          <arg type="System.StringSplitOptions" />
+        </method>
+        <method name="IndexOf" Template="{this}:IndexOf({0}, nil, nil, {1})">
+          <arg type="System.String" />
+          <arg type="System.StringComparison" />
+        </method>
+        <method name="IndexOf" Template="{this}:IndexOf({0}, {1}, nil, {2})">
+          <arg type="System.String" />
+          <arg type="System.Int32" />
+          <arg type="System.StringComparison" />
+        </method>
+        <method name="IndexOf" Template="{this}:IndexOf({0}, nil, nil, {1})">
+          <arg type="System.Char" />
+          <arg type="System.StringComparison" />
+        </method>
       </class>
       <class name="Enum">
         <method name="Parse" GenericArgCount="1" ArgCount="1" Template="System.Enum.Parse({`0}, {0})" />
@@ -387,7 +404,7 @@ limitations under the License.
         <property name="End" IsField="true" />
         <property name="Start" IsField="true" />
         <property name="Value">
-          <get Template="{this}" />
+          <get Template="System.Index.getValue({this})" />
         </property>
         <property name="IsFromEnd">
           <get Template="System.Index.IsFromEnd({this})" />
