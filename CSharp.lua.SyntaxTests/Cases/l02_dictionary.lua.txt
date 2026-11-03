@@ -34,8 +34,7 @@ tf
 # T15
 1 False
 # T16
-#! T16 attempt to index a nil value (field 'StringComparer')
-T16 EXC
+1
 # T17
 a!
 # T18

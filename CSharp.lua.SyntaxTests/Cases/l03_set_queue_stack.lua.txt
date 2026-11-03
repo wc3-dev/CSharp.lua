@@ -37,8 +37,7 @@ abc
 # T14
 1,2,3 1 3
 # T15
-#! T15 attempt to call a nil value (field 'BitArray')
-T15 EXC
+True 8
 # T16
 3
 # T17
