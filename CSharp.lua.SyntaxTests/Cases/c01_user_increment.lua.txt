@@ -1,1 +1,1 @@
-LUA ERROR attempt to perform arithmetic on a table value (local 'a')
+1
