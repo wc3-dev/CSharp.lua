@@ -1,4 +1,3 @@
-whole file: CRASH InvalidCastException: Unable to cast object of type 'Microsoft.CodeAnalysis.CSharp.Symbols.PublicModel.NonErrorNamedTypeSymbol' to type 'Microsoft.CodeAnalysis.IArrayTypeSymbol'.
 # T1
 3 2
 # T2
@@ -22,4 +21,4 @@ abc
 # T11
 0 3 2
 # T12
-CRASH InvalidCastException: Unable to cast object of type 'Microsoft.CodeAnalysis.CSharp.Symbols.PublicModel.NonErrorNamedTypeSymbol' to type 'Microsoft.CodeAnalysis.IArrayTypeSymbol'.
+3

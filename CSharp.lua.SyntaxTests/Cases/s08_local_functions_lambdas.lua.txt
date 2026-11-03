@@ -30,8 +30,7 @@ x!
 # T16
 3
 # T17
-#! T17 attempt to get length of a number value (local 'xs')
-T17 EXC
+3
 # T18
 8
 # T19
