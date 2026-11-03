@@ -28,16 +28,74 @@ local pairs = pairs
 local tostring = tostring
 local type = type
 
-local function toString(this, cls)
-  if this == nil then return "" end
-  if cls then
+-- An enum class's members as .NET orders them: by value, unsigned, then by name; worked out once for each class.
+local membersOf = setmetatable({}, { __mode = "k" })
+
+local function getMembers(cls)
+  local members = membersOf[cls]
+  if members == nil then
+    members = {}
     for k, v in pairs(cls) do
-      if v == this then
-        return k
+      if type(v) == "number" then
+        members[#members + 1] = { k, v }
+      end
+    end
+    table.sort(members, function (a, b)
+      if a[2] ~= b[2] then
+        return math.ult(a[2], b[2])
+      end
+      return a[1] < b[1]
+    end)
+    membersOf[cls] = members
+  end
+  return members
+end
+
+local function nameOf(cls, value)
+  for _, member in ipairs(getMembers(cls)) do
+    if member[2] == value then
+      return member[1]
+    end
+  end
+end
+
+-- A combination of flags as .NET names it: from the largest member down, each one all of whose bits are set, named
+-- smallest first; nil when bits are left over.
+local function flagsName(cls, value)
+  local members = getMembers(cls)
+  if value == 0 then
+    return nameOf(cls, 0) or "0"
+  end
+  local names, rest = {}, value
+  for i = #members, 1, -1 do
+    local v = members[i][2]
+    if v ~= 0 and band(rest, v) == v then
+      table.insert(names, 1, members[i][1])
+      rest = rest - v
+      if rest == 0 then
+        return table.concat(names, ", ")
       end
     end
   end
-  return tostring(this)
+end
+
+local function toString(this, cls, format)
+  if this == nil then return "" end
+  if cls == nil then return tostring(this) end
+  local f = format and format:upper()
+  if f == "D" then
+    return tostring(this)
+  elseif f == "X" then
+    return ("%08X"):format(band(this, 0xFFFFFFFF))
+  end
+  local name = nameOf(cls, this)
+  if name then
+    return name
+  end
+  if cls.__flags__ or f == "F" then
+    name = flagsName(cls, this)
+  end
+  return name or tostring(this)
 end
 
 local function hasFlag(this, flag)
@@ -58,6 +116,10 @@ local function tryParseEnum(enumType, value, ignoreCase)
   if cls.class ~= "E" then throw(ArgumentException("Arg_MustBeEnum")) end
   if value == nil then
     return
+  end
+  local number = tonumber(value:match("^%s*([-+]?%d+)%s*$"))
+  if number then
+    return math.tointeger(number)
   end
   if ignoreCase then
     value = value:lower()
@@ -103,39 +165,28 @@ System.define("System.Enum", {
     if value == nil then throw(ArgumentNullException("value")) end
     local cls = enumType[1] or enumType
     if cls.class ~= "E" then throw(ArgumentException("Arg_MustBeEnum")) end
-    for k, v in pairs(cls) do
-      if v == value then
-        return k
-      end
-    end
+    return nameOf(cls, value)
   end,
   GetNames = function (enumType)
     if enumType == nil then throw(ArgumentNullException("enumType")) end
     local cls = enumType[1] or enumType
     if cls.class ~= "E" then throw(ArgumentException("Arg_MustBeEnum")) end
     local t = {}
-    local count = 1
-    for k, v in pairs(cls) do
-      if type(v) == "number" then
-        t[count] = k
-        count = count + 1
-      end
+    for i, member in ipairs(getMembers(cls)) do
+      t[i] = member[1]
     end
     return System.arrayFromTable(t, System.String)
   end,
+  -- The values as the enum's own type, so that text made of them names them.
   GetValues = function (enumType)
     if enumType == nil then throw(ArgumentNullException("enumType")) end
     local cls = enumType[1] or enumType
     if cls.class ~= "E" then throw(ArgumentException("Arg_MustBeEnum")) end
     local t = {}
-    local count = 1
-    for _, v in pairs(cls) do
-      if type(v) == "number" then
-        t[count] = v
-        count = count + 1
-      end
+    for i, member in ipairs(getMembers(cls)) do
+      t[i] = member[2]
     end
-    return System.arrayFromTable(t, System.Int32)
+    return System.arrayFromTable(t, cls)
   end,
   IsDefined = function (enumType, value)
     if enumType == nil then throw(ArgumentNullException("enumType")) end

@@ -47,8 +47,10 @@ local type = type
 local tonumber = tonumber
 local String
 
-local function toString(t, isch, format)
-  if isch then return char(t) end
+-- A value as text, by the type of the sequence it is in: a char is its character, an enum its name.
+local function toString(t, T, format)
+  if T == Char then return char(t) end
+  if T and T.class == "E" then return System.EnumToString(t, T, format) end
   return systemToString(t, format)
 end
 
@@ -183,9 +185,9 @@ local function concat(...)
   if len == 1 then
     local v = ...
     if System.isEnumerableLike(v) then
-      local isch = v.__genericT__ == Char
+      local T = v.__genericT__
       for _, v in System.each(v) do
-        t[count] = toString(v, isch)
+        t[count] = toString(v, T)
         count = count + 1
       end
     else
@@ -317,12 +319,12 @@ local function joinEnumerable(separator, values)
   if type(separator) == "number" then
     separator = char(separator)
   end
-  local isch = values.__genericT__ == Char
+  local T = values.__genericT__
   local t = {}
   local len = 1
   for _, v in System.each(values) do
     if v ~= nil then
-      t[len] = toString(v, isch)
+      t[len] = toString(v, T)
       len = len + 1
     end
   end

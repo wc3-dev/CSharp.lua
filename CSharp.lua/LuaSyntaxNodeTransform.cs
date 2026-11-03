@@ -658,6 +658,10 @@ namespace CSharpLua {
         var statement = member.Accept<LuaKeyValueTableItemSyntax>(this);
         enumDeclaration.Add(statement);
       }
+      // The core names a combination of a [Flags] enum's members as .NET does ("A, C").
+      if (typeSymbol.GetAttributes().Any(i => i.AttributeClass is { Name: "FlagsAttribute", ContainingNamespace.Name: "System" })) {
+        enumDeclaration.Add(new LuaKeyValueTableItemSyntax((LuaIdentifierNameSyntax)"__flags__", LuaIdentifierLiteralExpressionSyntax.True));
+      }
       CheckTypeDeclaration(typeSymbol, enumDeclaration, attributes);
       typeDeclarations_.Pop();
       generator_.AddEnumDeclaration(typeSymbol, enumDeclaration);
@@ -2376,7 +2380,7 @@ namespace CSharpLua {
             enumTypeSymbol = enumType;
             isNullable = isNullableEnum || node.Expression is MemberBindingExpressionSyntax;
           }
-          result = BuildEnumToStringExpression(enumTypeSymbol, isNullable, target, receiver);
+          result = BuildEnumToStringExpression(enumTypeSymbol, isNullable, target, receiver, GetEnumFormat(symbol, node));
           return true;
         } else if (symbol.ContainingType.IsEnumType(out var enumTypeSymbol, out bool isNullable)) {
           var receiver = GetEnumToStringReceiver(node, out var target);
@@ -2385,6 +2389,14 @@ namespace CSharpLua {
         }
       }
       return false;
+    }
+
+    // The format of e.ToString("D"); null for e.ToString().
+    private LuaExpressionSyntax GetEnumFormat(IMethodSymbol symbol, InvocationExpressionSyntax node) {
+      if (symbol.Parameters.Length == 1 && symbol.Parameters[0].Type.IsStringType() && node.ArgumentList.Arguments.Count == 1) {
+        return node.ArgumentList.Arguments[0].Expression.AcceptExpression(this);
+      }
+      return null;
     }
 
     // e.ToString() has e as its receiver; in e?.ToString() the call is a member binding, and the receiver is the expression
@@ -4537,19 +4549,27 @@ namespace CSharpLua {
       return LuaBreakStatementSyntax.Instance;
     }
 
-    private LuaExpressionSyntax BuildEnumToStringExpression(ITypeSymbol typeInfo, bool isNullable, LuaExpressionSyntax original, ExpressionSyntax node) {
-      if (original is LuaLiteralExpressionSyntax) {
-        var symbol = semanticModel_.GetSymbolInfo(node).Symbol;
-        return new LuaConstLiteralExpression(new LuaStringLiteralExpressionSyntax(symbol!.Name), typeInfo.ToString());
+    private LuaExpressionSyntax BuildEnumToStringExpression(ITypeSymbol typeInfo, bool isNullable, LuaExpressionSyntax original, ExpressionSyntax node, LuaExpressionSyntax format = null) {
+      // A constant that is one member read is its name; another ((Color)5, F.A | F.B) is named by the core when it runs.
+      if (format == null && original is LuaLiteralExpressionSyntax && semanticModel_.GetSymbolInfo(node).Symbol is IFieldSymbol member) {
+        return new LuaConstLiteralExpression(new LuaStringLiteralExpressionSyntax(member.Name), typeInfo.ToString());
       }
 
       AddExportEnum(typeInfo);
       var typeName = GetTypeShortName(typeInfo);
       if (IsPreventDebug || isNullable) {
-        return LuaIdentifierNameSyntax.System.MemberAccess(LuaIdentifierNameSyntax.EnumToString).Invocation(original, typeName);
+        var invocation = LuaIdentifierNameSyntax.System.MemberAccess(LuaIdentifierNameSyntax.EnumToString).Invocation(original, typeName);
+        if (format != null) {
+          invocation.AddArgument(format);
+        }
+        return invocation;
       }
 
-      return original.MemberAccess(LuaIdentifierNameSyntax.EnumToString, true).Invocation(typeName);
+      var call = original.MemberAccess(LuaIdentifierNameSyntax.EnumToString, true).Invocation(typeName);
+      if (format != null) {
+        call.AddArgument(format);
+      }
+      return call;
     }
 
     private LuaExpressionSyntax WrapStringConcatExpression(ExpressionSyntax expression, LuaExpressionSyntax format = null, LuaExpressionSyntax alignment = null) {
@@ -4602,7 +4622,8 @@ namespace CSharpLua {
       }
 
       if (typeInfo.IsEnumType(out var enumTypeSymbol, out bool isNullable)) {
-        return BuildEnumToStringExpression(enumTypeSymbol, isNullable, original, expression);
+        var text = BuildEnumToStringExpression(enumTypeSymbol, isNullable, original, expression, format);
+        return alignment != null ? FormatAlignment(text, null, alignment) : text;
       }
 
       if (typeInfo.IsNullableType(out var nullableElementType)) {
