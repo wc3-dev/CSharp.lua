@@ -26,7 +26,7 @@ a 2 a
 1972.5True
 12
 # T13
-Monday Monday
+Monday 1
 # T14
 12
 #! T14 attempt to call a nil value (method 'getFormat')
