@@ -5,6 +5,10 @@ class Counter {
 
   public static Counter operator ++(Counter c) => new Counter { Value = c.Value + 1 };
   public static Counter operator --(Counter c) => new Counter { Value = c.Value - 1 };
+  public static bool operator true(Counter c) => c.Value != 0;
+  public static bool operator false(Counter c) => c.Value == 0;
+  public static Counter operator &(Counter a, Counter b) => new Counter { Value = a.Value & b.Value };
+  public static Counter operator |(Counter a, Counter b) => new Counter { Value = a.Value | b.Value };
 }
 
 struct Vec {
@@ -61,6 +65,36 @@ class Program {
     });
     Show("DerivedRecord", () => (new Derived(1, "q") == new Derived(1, "q")) + " " + (new Derived(1, "q") != new Derived(1, "r")) + " " + (new Third(1, "q", true) == new Third(1, "q", true)));
     Show("DerivedText", () => new Third(1, "q", true) + " " + new Derived(1, "q").Equals(new Base(1)) + " " + new Derived(1, "q").Equals(new Derived(1, "q")));
+    Show("TrueFalse", () => {
+      var zero = new Counter();
+      var one = new Counter { Value = 1 };
+      var two = new Counter { Value = 2 };
+      var text = (zero ? "t" : "f") + (one ? "t" : "f") + ((one && zero) ? "t" : "f") + ((zero || one) ? "t" : "f") + ((one && two) ? "t" : "f");
+      if (one) {
+        text += " if";
+      }
+      var count = new Counter { Value = 3 };
+      while (count) {
+        count--;
+      }
+      var down = new Counter { Value = 2 };
+      do {
+        down--;
+      } while (down);
+      var steps = 0;
+      for (var left = new Counter { Value = 2 }; left; left--) {
+        steps++;
+      }
+      text += " " + down.Value + steps;
+      var calls = 0;
+      Counter Called() {
+        calls++;
+        return one;
+      }
+      var shortAnd = zero && Called();
+      var shortOr = one || Called();
+      return text + " " + count.Value + " " + calls + " " + shortAnd.Value + " " + shortOr.Value + " " + (one && two).Value + " " + (zero || two).Value;
+    });
     Show("AnonymousWith", () => {
       var a = new { X = 1, Y = "a" };
       var b = a with { X = 2 };

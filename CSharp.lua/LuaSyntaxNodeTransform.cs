@@ -3854,8 +3854,38 @@ namespace CSharpLua {
 
 #region if else switch
 
+    // A condition of a type with its own operator true is that operator's answer, as C# asks it.
+    private LuaExpressionSyntax VisitCondition(ExpressionSyntax condition) {
+      var expression = VisitExpression(condition);
+      var type = semanticModel_.GetTypeInfo(condition).Type;
+      if (type is { SpecialType: not SpecialType.System_Boolean, TypeKind: TypeKind.Class or TypeKind.Struct } && !type.IsNullableType()
+        && !semanticModel_.Compilation.ClassifyConversion(type, semanticModel_.Compilation.GetSpecialType(SpecialType.System_Boolean)).IsImplicit) {
+        for (var i = type; i != null; i = i.BaseType) {
+          if (i.GetMembers("op_True").OfType<IMethodSymbol>().FirstOrDefault() is { } operatorTrue) {
+            return GetUserDefinedOperatorExpression(operatorTrue, new Func<LuaExpressionSyntax>[] { () => expression });
+          }
+        }
+      }
+      return expression;
+    }
+
+    // a && b and a || b of a type with its own &, |, true and false: a when false(a) (true(a) for ||), else a & b (a | b),
+    // where b is worked out only then.
+    private LuaExpressionSyntax BuildUserDefinedLogicExpression(BinaryExpressionSyntax node, IMethodSymbol bitOperator, bool isAnd) {
+      var test = bitOperator.ContainingType.GetMembers(isAnd ? "op_False" : "op_True").OfType<IMethodSymbol>().First();
+      var temp = GetTempIdentifier();
+      CurBlock.AddStatement(new LuaLocalVariableDeclaratorSyntax(temp, VisitExpression(node.Left)));
+      var ifStatement = new LuaIfStatementSyntax(GetUserDefinedOperatorExpression(test, new Func<LuaExpressionSyntax>[] { () => temp }).Not());
+      PushBlock(ifStatement.Body);
+      var right = VisitExpression(node.Right);
+      PopBlock();
+      ifStatement.Body.AddStatement(temp.Assignment(GetUserDefinedOperatorExpression(bitOperator, new Func<LuaExpressionSyntax>[] { () => temp, () => right })));
+      CurBlock.AddStatement(ifStatement);
+      return temp;
+    }
+
     public override LuaSyntaxNode VisitIfStatement(IfStatementSyntax node) {
-      var condition = VisitExpression(node.Condition);
+      var condition = VisitCondition(node.Condition);
       LuaIfStatementSyntax ifStatement = new LuaIfStatementSyntax(condition);
       WriteStatementOrBlock(node.Statement, ifStatement.Body);
       ifStatements_.Push(ifStatement);
@@ -4910,9 +4940,15 @@ namespace CSharpLua {
           return new LuaInvocationExpressionSyntax(LuaIdentifierNameSyntax.As, left, right);
         }
         case SyntaxKind.LogicalOrExpression: {
+          if (IsUserDefinedOperator(node, out var orOperator)) {
+            return BuildUserDefinedLogicExpression(node, orOperator, false);
+          }
           return BuildLogicOrBinaryExpression(node);
         }
         case SyntaxKind.LogicalAndExpression: {
+          if (IsUserDefinedOperator(node, out var andOperator)) {
+            return BuildUserDefinedLogicExpression(node, andOperator, true);
+          }
           return BuildLogicAndBinaryExpression(node);
         }
         case SyntaxKind.CoalesceExpression: {
@@ -5552,7 +5588,7 @@ namespace CSharpLua {
     private LuaWhileStatementSyntax BuildWhileStatement(ExpressionSyntax nodeCondition, StatementSyntax nodeStatement) {
       LuaBlockSyntax conditionBody = new LuaBlockSyntax();
       PushBlock(conditionBody);
-      var condition = nodeCondition != null ? VisitExpression(nodeCondition) : LuaIdentifierNameSyntax.True;
+      var condition = nodeCondition != null ? VisitCondition(nodeCondition) : LuaIdentifierNameSyntax.True;
       PopBlock();
 
       LuaWhileStatementSyntax whileStatement;
@@ -5607,7 +5643,7 @@ namespace CSharpLua {
       LuaBlockSyntax body = new LuaBlockSyntax();
       PushBlock(body);
       VisitLoopBody(node.Statement, body);
-      var condition = VisitExpression(node.Condition);
+      var condition = VisitCondition(node.Condition);
       if (node.Condition is BinaryExpressionSyntax) {
         condition = condition.Parenthesized();
       }
@@ -5648,7 +5684,7 @@ namespace CSharpLua {
       bool mayBeNullOrFalse = MayBeNullOrFalse(node.WhenTrue);
       if (mayBeNullOrFalse) {
         var temp = GetTempIdentifier();
-        var condition = VisitExpression(node.Condition);
+        var condition = VisitCondition(node.Condition);
         LuaIfStatementSyntax ifStatement = new LuaIfStatementSyntax(condition);
         PushBlock(ifStatement.Body);
         var whenTrue = VisitExpression(node.WhenTrue);
@@ -5666,12 +5702,13 @@ namespace CSharpLua {
         CurBlock.AddStatement(ifStatement);
         return temp;
       } else {
-        LuaExpressionSyntax Accept(ExpressionSyntax expressionNode) {
-          var expression = VisitExpression(expressionNode);
+        LuaExpressionSyntax Parenthesized(LuaExpressionSyntax expression) {
           return expression is LuaBinaryExpressionSyntax ? expression.Parenthesized() : expression;
         }
 
-        var condition = Accept(node.Condition);
+        LuaExpressionSyntax Accept(ExpressionSyntax expressionNode) => Parenthesized(VisitExpression(expressionNode));
+
+        var condition = Parenthesized(VisitCondition(node.Condition));
         var whenTrue = Accept(node.WhenTrue);
         var whenFalse = Accept(node.WhenFalse);
         return condition.And(whenTrue).Or(whenFalse);
