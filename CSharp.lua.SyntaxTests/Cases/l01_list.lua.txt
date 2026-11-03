@@ -11,8 +11,7 @@ True False 3,2,1
 1 -1 True 2 True 1 2 2 2
 # T5
 ab
-#! T5 attempt to index a nil value (field 'StringComparer')
-T5 EXC
+0
 # T6
 2,3 4 2,4,6,8 True
 1234
