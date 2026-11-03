@@ -2256,6 +2256,7 @@ namespace CSharpLua {
 
     private sealed class RefOrOutArgument {
       public LuaExpressionSyntax Expression { get; }
+      public ArgumentSyntax Argument { get; }
       public bool IsDeclaration { get; }
       public bool IsSpecial { get; }
 
@@ -2265,6 +2266,7 @@ namespace CSharpLua {
 
       public RefOrOutArgument(LuaExpressionSyntax expression, ArgumentSyntax argument) {
         Expression = expression;
+        Argument = argument;
         IsSpecial = IsInSpecialBinaryExpression(argument);
         IsDeclaration = (argument.Expression.IsKind(SyntaxKind.DeclarationExpression) && !IsSpecial) || expression == LuaIdentifierNameSyntax.Placeholder;
       }
@@ -2284,13 +2286,23 @@ namespace CSharpLua {
       }
     }
 
+    // A struct that can change, given back through an out argument by a method of the core, is the core's own value.
+    private bool IsOutOfCoreStruct(IMethodSymbol symbol, RefOrOutArgument argument) {
+      return symbol != null && generator_.IsFromAssembly(symbol) && argument.Argument is { } syntax
+        && syntax.RefKindKeyword.IsKind(SyntaxKind.OutKeyword) && argument.Expression != LuaIdentifierNameSyntax.Placeholder
+        && semanticModel_.GetTypeInfo(syntax.Expression).Type is { } type
+        && type.IsCustomValueType() && !generator_.IsReadOnlyStruct(type) && !type.IsNullableWithBasicElementType();
+    }
+
     private LuaExpressionSyntax BuildInvokeRefOrOut(CSharpSyntaxNode node, LuaExpressionSyntax invocation, IEnumerable<RefOrOutArgument> refOrOutArguments) {
       var locals = new LuaLocalVariablesSyntax();
       var multipleAssignment = new LuaMultipleAssignmentExpressionSyntax();
       var propertyStatements = new LuaStatementListSyntax();
+      var method = semanticModel_.GetSymbolInfo(node).Symbol as IMethodSymbol;
 
       void FillRefOrOutArguments() {
         foreach (var refOrOutArgument in refOrOutArguments) {
+          bool isCopied = IsOutOfCoreStruct(method, refOrOutArgument);
           // fn(out arr[0])
           if (refOrOutArgument.Expression is LuaPropertyAdapterExpressionSyntax propertyAdapter) {
             var propertyTemp = GetTempIdentifier();
@@ -2299,7 +2311,7 @@ namespace CSharpLua {
 
             var setPropertyAdapter = propertyAdapter.GetClone();
             setPropertyAdapter.IsGetOrAdd = false;
-            setPropertyAdapter.ArgumentList.AddArgument(propertyTemp);
+            setPropertyAdapter.ArgumentList.AddArgument(isCopied ? LuaIdentifierNameSyntax.NullableClone.Invocation(propertyTemp) : propertyTemp);
             propertyStatements.Statements.Add(setPropertyAdapter);
           } else {
             if (refOrOutArgument.IsDeclaration) {
@@ -2308,6 +2320,10 @@ namespace CSharpLua {
               CurFunction.Body.AddHeadVariable((LuaIdentifierNameSyntax)refOrOutArgument.Expression);
             }
             multipleAssignment.Lefts.Add(refOrOutArgument.Expression);
+            if (isCopied) {
+              var copy = refOrOutArgument.Expression.Assignment(LuaIdentifierNameSyntax.NullableClone.Invocation(refOrOutArgument.Expression));
+              propertyStatements.Statements.Add(new LuaExpressionStatementSyntax(copy));
+            }
           }
         }
       }
