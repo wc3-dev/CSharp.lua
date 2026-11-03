@@ -804,9 +804,14 @@ namespace CSharpLua {
           return true;
 
         case SyntaxKind.ParenthesizedLambdaExpression:
+        case SyntaxKind.SimpleLambdaExpression:
+        case SyntaxKind.AnonymousMethodExpression:
           return false;
 
+        // A method group, by its name or through its class or an object, is made a delegate, and has no type of its own.
         case SyntaxKind.IdentifierName:
+        case SyntaxKind.GenericName:
+        case SyntaxKind.SimpleMemberAccessExpression:
           var symbol = semanticModel_.GetSymbolInfo(conditionalWhenTrue).Symbol;
           if (symbol != null) {
             if (symbol.Kind == SymbolKind.Method) {
@@ -1268,7 +1273,7 @@ namespace CSharpLua {
       return parameter;
     }
 
-    private void CheckValueTypeClone(ITypeSymbol typeSymbol, IdentifierNameSyntax node, ref LuaExpressionSyntax expression, bool isPropertyField = false) {
+    private void CheckValueTypeClone(ITypeSymbol typeSymbol, ExpressionSyntax node, ref LuaExpressionSyntax expression, bool isPropertyField = false) {
       if (typeSymbol.IsCustomValueType() && !generator_.IsReadOnlyStruct(typeSymbol) && !typeSymbol.IsNullableWithBasicElementType() && expression is not LuaPropertyTemplateExpressionSyntax) {
         bool need = false;
         if (isPropertyField) {
