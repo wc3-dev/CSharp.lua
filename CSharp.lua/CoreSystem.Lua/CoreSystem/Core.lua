@@ -1307,6 +1307,14 @@ ValueType = defCls("System.ValueType", {
 
 local AnonymousType
 AnonymousType = defCls("System.AnonymousType", {
+  -- For with, which copies the object and sets the members it names.
+  __clone__ = function (this)
+    local t = {}
+    for k, v in pairs(this) do
+      t[k] = v
+    end
+    return setmetatable(t, AnonymousType)
+  end,
   EqualsObj = function (this, obj)
     if getmetatable(obj) ~= AnonymousType then return false end
     for k, v in pairs(this) do
@@ -1365,7 +1373,10 @@ local function tupleCompareToObj(t, obj)
   return tupleCompareTo(t, obj)
 end
 
+-- Each item as the rest of the core writes values as text, which needs no methods on numbers or booleans; a char is a
+-- number, written as its character by the item's type.
 local function tupleToString(t)
+  local types = getmetatable(t).__genericT__
   local a = { "(" }
   local count = 2
   for i = 1, t.n do
@@ -1375,7 +1386,11 @@ local function tupleToString(t)
     end
     local v = t[i]
     if v ~= nil then
-      a[count] = v:ToString()
+      if types and types[i] == System.Char then
+        a[count] = string.char(v)
+      else
+        a[count] = toString(v)
+      end
       count = count + 1
     end
   end
@@ -1443,8 +1458,9 @@ end, ValueTuple, '')
 ValueTuple.__call = tupleCreate
 System.ValueTuple = ValueTupleFn
 
+-- rawequal: == on two records is this function, so it would call itself without end.
 local function recordEquals(t, other)
-  if t == other then return true end
+  if rawequal(t, other) then return true end
   if getmetatable(t) == getmetatable(other) then
     for k, v in pairs(t) do
       if not equalsObj(v, other[k]) then
@@ -1578,24 +1594,38 @@ function System.isNullable(T)
   return getmetatable(T) == Nullable
 end
 
+-- An index is a number: n from the start, -n from the end. The compiler writes every index from the start as an integer,
+-- so the float zero is ^0, the end; this needs no sign of zero, which the game's floats may not keep through 1 / x.
+local function isFromEnd(index)
+  return index < 0 or (index == 0 and math.type(index) == "float")
+end
+
+local function indexOffset(index, length)
+  if isFromEnd(index) then
+    return length + math.tointeger(index)
+  end
+  return index
+end
+
+local function indexToString(index)
+  if isFromEnd(index) then
+    return "^" .. math.tointeger(-index)
+  end
+  return tostring(index)
+end
+
 local Index = defStc("System.Index", {
   End = -0.0,
   Start = 0,
-  IsFromEnd = function (this)
-    return 1 / this < 0
+  IsFromEnd = isFromEnd,
+  GetOffset = indexOffset,
+  getValue = function (this)
+    return isFromEnd(this) and math.tointeger(-this) or this
   end,
-  GetOffset = function (this, length)
-    if 1 / this < 0 then
-      return length + this
-    end
-    return this
-  end,
-  ToString = function (this)
-    return ((1 / this < 0) and '^' or '') .. this
-  end
+  ToString = indexToString
 })
 setmetatable(Index, {
-  __call = function (value, fromEnd)
+  __call = function (_, value, fromEnd)
     if value < 0 then
       throw(System.ArgumentOutOfRangeException("Non-negative number required."))
     end
@@ -1606,6 +1636,81 @@ setmetatable(Index, {
       return -value
     end
     return value
+  end
+})
+
+-- A range is { start, end } of two indexes; the compiler writes nil for an end left out.
+local Range
+
+local function rangeOffsets(range, length)
+  local start, finish = indexOffset(range[1], length), indexOffset(range[2], length)
+  if start < 0 or finish > length or start > finish then
+    throw(System.ArgumentOutOfRangeException("length"))
+  end
+  return start, finish - start
+end
+
+local function sameIndex(a, b)
+  return a == b and isFromEnd(a) == isFromEnd(b)
+end
+
+local function newRange(start, finish)
+  return setmetatable({ start or 0, finish or -0.0 }, Range)
+end
+
+Range = defStc("System.Range", {
+  getStart = function (this)
+    return this[1]
+  end,
+  getEnd = function (this)
+    return this[2]
+  end,
+  getAll = function ()
+    return newRange(0, -0.0)
+  end,
+  StartAt = function (start)
+    return newRange(start, -0.0)
+  end,
+  EndAt = function (finish)
+    return newRange(0, finish)
+  end,
+  GetOffsetAndLength = function (this, length)
+    return System.ValueTuple(System.Int32, System.Int32)(rangeOffsets(this, length))
+  end,
+  Equals = function (this, other)
+    return sameIndex(this[1], other[1]) and sameIndex(this[2], other[2])
+  end,
+  EqualsObj = function (this, other)
+    return getmetatable(other) == Range and sameIndex(this[1], other[1]) and sameIndex(this[2], other[2])
+  end,
+  GetHashCode = function (this)
+    return indexOffset(this[1], 0) * 31 + indexOffset(this[2], 0)
+  end,
+  ToString = function (this)
+    return indexToString(this[1]) .. ".." .. indexToString(this[2])
+  end,
+  default = function ()
+    return newRange(0, 0)
+  end,
+  -- source[range]: a string's text, a new array of an array's elements, or the source's own Slice (a List's).
+  slice = function (source, range)
+    if type(source) == "string" then
+      local offset, count = rangeOffsets(range, #source)
+      return ssub(source, offset + 1, offset + count)
+    end
+    local offset, count = rangeOffsets(range, #source)
+    local slice = source.Slice
+    if slice ~= nil then
+      return slice(source, offset, count)
+    end
+    local t = {}
+    table.move(source, offset + 1, offset + count, 1, t)
+    return System.arrayFromTable(t, source.__genericT__)
+  end
+})
+setmetatable(Range, {
+  __call = function (_, start, finish)
+    return newRange(start, finish)
   end
 })
 

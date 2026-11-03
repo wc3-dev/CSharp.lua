@@ -819,15 +819,17 @@ namespace CSharpLua {
       return functionExpress;
     }
 
-    private LuaStatementSyntax BuildCheckLoopControlInvocationExpression(LuaInvocationExpressionSyntax invocationExpression, LuaCheckLoopControlExpressionSyntax check) {
-      return BuildCheckLoopControlInvocationExpression(invocationExpression, check.HasReturn, check.HasBreak, check.HasContinue);
+    private LuaStatementSyntax BuildCheckLoopControlInvocationExpression(LuaInvocationExpressionSyntax invocationExpression, LuaCheckLoopControlExpressionSyntax check, SyntaxNode node) {
+      return BuildCheckLoopControlInvocationExpression(invocationExpression, check.HasReturn, check.HasBreak, check.HasContinue, node);
     }
 
-    private LuaStatementSyntax BuildCheckLoopControlInvocationExpression(LuaInvocationExpressionSyntax invocationExpression, IEnumerable<LuaCheckLoopControlExpressionSyntax> checks) {
-      return BuildCheckLoopControlInvocationExpression(invocationExpression, checks.Any(i => i.HasReturn), checks.Any(i => i.HasBreak), checks.Any(i => i.HasContinue));
+    private LuaStatementSyntax BuildCheckLoopControlInvocationExpression(LuaInvocationExpressionSyntax invocationExpression, IEnumerable<LuaCheckLoopControlExpressionSyntax> checks, SyntaxNode node) {
+      return BuildCheckLoopControlInvocationExpression(invocationExpression, checks.Any(i => i.HasReturn), checks.Any(i => i.HasBreak), checks.Any(i => i.HasContinue), node);
     }
 
-    private LuaStatementSyntax BuildCheckLoopControlInvocationExpression(LuaInvocationExpressionSyntax invocationExpression, bool hasReturn, bool hasBreak, bool hasContinue) {
+    // node is the C# statement the invocation is written for: a break or continue passed on from the function is passed on
+    // again when node is inside another function within the loop.
+    private LuaStatementSyntax BuildCheckLoopControlInvocationExpression(LuaInvocationExpressionSyntax invocationExpression, bool hasReturn, bool hasBreak, bool hasContinue, SyntaxNode node) {
       if (!hasReturn && !hasBreak && !hasContinue) {
         return invocationExpression;
       }
@@ -855,13 +857,14 @@ namespace CSharpLua {
 
       if (hasBreak || hasContinue) {
         var condition = status.EqualsEquals(LuaIdentifierLiteralExpressionSyntax.False);
+        LuaStatementSyntax exit = IsLoopExitInFunction(node, !hasBreak) ? new LuaReturnStatementSyntax(LuaIdentifierLiteralExpressionSyntax.False) : LuaBreakStatementSyntax.Instance;
         if (ifStatement != null) {
           var elseIfStatement = new LuaElseIfStatementSyntax(condition);
-          elseIfStatement.Body.AddStatement(LuaBreakStatementSyntax.Instance);
+          elseIfStatement.Body.AddStatement(exit);
           ifStatement.ElseIfStatements.Add(elseIfStatement);
         } else {
           ifStatement = new LuaIfStatementSyntax(condition);
-          ifStatement.Body.Statements.Add(LuaBreakStatementSyntax.Instance);
+          ifStatement.Body.Statements.Add(exit);
         }
       }
 
@@ -901,14 +904,14 @@ namespace CSharpLua {
         tryInvocationExpression.AddArgument(finallyFunctionExpress);
       }
 
-      return BuildCheckLoopControlInvocationExpression(tryInvocationExpression, tryExpresses);
+      return BuildCheckLoopControlInvocationExpression(tryInvocationExpression, tryExpresses, node);
     }
 
-    private LuaStatementSyntax BuildUsingStatement(List<LuaIdentifierNameSyntax> variableIdentifiers, List<LuaExpressionSyntax> variableExpressions, Action<LuaBlockSyntax> writeStatements) {
-      return  BuildUsingStatement(new LuaUsingAdapterExpressionSyntax(), variableIdentifiers, variableExpressions, writeStatements);
+    private LuaStatementSyntax BuildUsingStatement(List<LuaIdentifierNameSyntax> variableIdentifiers, List<LuaExpressionSyntax> variableExpressions, Action<LuaBlockSyntax> writeStatements, SyntaxNode node) {
+      return  BuildUsingStatement(new LuaUsingAdapterExpressionSyntax(), variableIdentifiers, variableExpressions, writeStatements, node);
     }
 
-    private LuaStatementSyntax BuildUsingStatement(LuaUsingAdapterExpressionSyntax usingAdapterExpress, List<LuaIdentifierNameSyntax> variableIdentifiers, List<LuaExpressionSyntax> variableExpressions, Action<LuaBlockSyntax> writeStatements) {
+    private LuaStatementSyntax BuildUsingStatement(LuaUsingAdapterExpressionSyntax usingAdapterExpress, List<LuaIdentifierNameSyntax> variableIdentifiers, List<LuaExpressionSyntax> variableExpressions, Action<LuaBlockSyntax> writeStatements, SyntaxNode node) {
       usingAdapterExpress.ParameterList.Parameters.AddRange(variableIdentifiers);
       PushFunction(usingAdapterExpress);
       var block = new LuaBlockSyntax();
@@ -920,12 +923,12 @@ namespace CSharpLua {
         var usingInvocationExpression = new LuaInvocationExpressionSyntax(LuaIdentifierNameSyntax.Using);
         usingInvocationExpression.AddArgument(variableExpressions.First());
         usingInvocationExpression.AddArgument(usingAdapterExpress);
-        return BuildCheckLoopControlInvocationExpression(usingInvocationExpression, usingAdapterExpress);
+        return BuildCheckLoopControlInvocationExpression(usingInvocationExpression, usingAdapterExpress, node);
       } else {
         var usingInvocationExpression = new LuaInvocationExpressionSyntax(LuaIdentifierNameSyntax.UsingX);
         usingInvocationExpression.AddArgument(usingAdapterExpress);
         usingInvocationExpression.ArgumentList.Arguments.AddRange(variableExpressions);
-        return BuildCheckLoopControlInvocationExpression(usingInvocationExpression, usingAdapterExpress);
+        return BuildCheckLoopControlInvocationExpression(usingInvocationExpression, usingAdapterExpress, node);
       }
     }
 
@@ -943,7 +946,7 @@ namespace CSharpLua {
         variableExpressions.Add(expression);
       }
 
-      return BuildUsingStatement(variableIdentifiers, variableExpressions, body => WriteStatementOrBlock(node.Statement, body));
+      return BuildUsingStatement(variableIdentifiers, variableExpressions, body => WriteStatementOrBlock(node.Statement, body), node);
     }
 
     private void ApplyUsingDeclarations(LuaBlockSyntax block, List<int> indexes, BlockSyntax node) {
@@ -968,10 +971,13 @@ namespace CSharpLua {
       var statements = block.Statements.Skip(lastIndex + 1);
       var usingAdapterExpress = new LuaUsingAdapterExpressionSyntax() {
         HasReturn = block.HasUsingReturn || node.Statements.Any(i => i.IsKind((SyntaxKind.ReturnStatement))),
+        HasBreak = block.HasUsingLoopExit,
       };
-      // The using declarations above this one still wrap it, so a return that passes on its function's is one of theirs.
+      // The using declarations above this one still wrap it, so a return, break or continue that passes on its function's
+      // is one of theirs.
       block.UsingDeclarations = position > 0 ? indexes : null;
-      var usingStatement = BuildUsingStatement(usingAdapterExpress, variableIdentifiers, variableExpressions, body => body.Statements.AddRange(statements));
+      var declaration = node.Statements.Where(IsUsingDeclaration).ElementAt(position);
+      var usingStatement = BuildUsingStatement(usingAdapterExpress, variableIdentifiers, variableExpressions, body => body.Statements.AddRange(statements), declaration);
       block.UsingDeclarations = null;
       block.Statements.RemoveRange(indexes[position]);
       block.AddStatement(usingStatement);
@@ -1223,10 +1229,24 @@ namespace CSharpLua {
       var expression = BuildMemberAccessTargetExpression(node.Expression);
       var baseName = symbol == null ? LuaIdentifierNameSyntax.Empty : GetMemberName(symbol);
       var identifierName = new LuaPropertyOrEventIdentifierNameSyntax(true, baseName);
-      var propertyAdapter = new LuaPropertyAdapterExpressionSyntax(expression, identifierName, true);
+      LuaPropertyAdapterExpressionSyntax propertyAdapter;
+      if (symbol != null && IsInternalMember(symbol)) {
+        // A private indexer's accessors are local functions of the class, called as a private property's are.
+        propertyAdapter = new LuaPropertyAdapterExpressionSyntax(identifierName);
+        propertyAdapter.ArgumentList.AddArgument(expression);
+      } else {
+        propertyAdapter = new LuaPropertyAdapterExpressionSyntax(expression, identifierName, true);
+      }
       if (symbol != null) {
         var arguments = BuildArgumentList(symbol, symbol.Parameters, node.ArgumentList);
         propertyAdapter.ArgumentList.AddArguments(arguments);
+        // An index from the end on an indexer of an int (a string's, a List's) is the count less it, as on an array.
+        if (node.ArgumentList.Arguments.Count == 1 && symbol.Parameters.Length == 1 && symbol.Parameters[0].Type.SpecialType == SpecialType.System_Int32) {
+          var arg = node.ArgumentList.Arguments.First().Expression;
+          if (semanticModel_.GetTypeInfo(arg).Type.IsSystemIndex()) {
+            UpdateIndexArgumentExpression(node.Expression, propertyAdapter, arg.IsKind(SyntaxKind.IndexExpression));
+          }
+        }
       } else {
         var argumentList = node.ArgumentList.Accept<LuaArgumentListSyntax>(this);
         propertyAdapter.ArgumentList.Arguments.AddRange(argumentList.Arguments);
@@ -1260,6 +1280,14 @@ namespace CSharpLua {
 
     public override LuaSyntaxNode VisitElementAccessExpression(ElementAccessExpressionSyntax node) {
       var symbol = semanticModel_.GetSymbolInfo(node).Symbol;
+      // source[range] of an array, or of a type C# reads with its Substring or Slice: the core slices it.
+      if (symbol is null or { Kind: SymbolKind.Method } && node.ArgumentList.Arguments.Count == 1
+        && semanticModel_.GetTypeInfo(node.ArgumentList.Arguments[0].Expression).Type is { Name: "Range", ContainingNamespace.Name: "System" }) {
+        var source = node.Expression.AcceptExpression(this);
+        var range = node.ArgumentList.Arguments[0].Expression.AcceptExpression(this);
+        return LuaIdentifierNameSyntax.Range.MemberAccess("slice").Invocation(source, range);
+      }
+      LuaExpressionSyntax expression;
       if (symbol?.Kind == SymbolKind.Method) {
         var typeSymbol = semanticModel_.GetTypeInfo(node.Expression).Type;
         IPropertySymbol propertySymbol;
@@ -1268,10 +1296,17 @@ namespace CSharpLua {
         } else {
           propertySymbol = (IPropertySymbol)typeSymbol.GetMembers().First(i => i.IsIndexerProperty());
         }
-        return InternalVisitElementAccessExpression(propertySymbol, node);
+        expression = InternalVisitElementAccessExpression(propertySymbol, node);
+      } else {
+        expression = InternalVisitElementAccessExpression((IPropertySymbol)symbol, node);
       }
 
-      return InternalVisitElementAccessExpression((IPropertySymbol)symbol, node);
+      // A struct read from an element is copied where one read from a variable is.
+      var elementType = semanticModel_.GetTypeInfo(node).Type;
+      if (elementType != null) {
+        CheckValueTypeClone(elementType, node, ref expression);
+      }
+      return expression;
     }
 
     private LuaExpressionSyntax VisitFormatInterpolatedStringExpression(InterpolatedStringExpressionSyntax node) {
@@ -1521,7 +1556,7 @@ namespace CSharpLua {
       for (int i = 0; i < statements.Count; ++i) {
         if (statements[i] is LocalFunctionStatementSyntax localFunction) {
           var symbol = (IMethodSymbol)semanticModel_.GetDeclaredSymbol(localFunction);
-          if (!IsLocalFunctionOfType(localFunction, symbol)) {
+          if (!IsLocalFunctionOfType(localFunction, symbol) && !switchLocalFunctions_.Contains(symbol)) {
             functions.Add((symbol, i, localFunction));
           }
         }
@@ -1605,6 +1640,72 @@ namespace CSharpLua {
         block.AddHeadVariable(GetLocalMethodName(symbol, node));
       }
       return definitions;
+    }
+
+    private readonly HashSet<ISymbol> switchLocalFunctions_ = new(SymbolEqualityComparer.Default);
+
+    /// <summary>
+    /// C# gives a switch's sections one scope, but each section is a block of its own in Lua, where a local function of one
+    /// section is not seen from another section or from a case label. A local function used outside its section, and the
+    /// local functions of the sections it calls, are declared above the sections in <paramref name="body"/> and assigned
+    /// there.
+    /// </summary>
+    private void MoveSwitchLocalFunctions(SwitchStatementSyntax node, LuaBlockSyntax body) {
+      var functions = new Dictionary<IMethodSymbol, (LocalFunctionStatementSyntax Node, SwitchSectionSyntax Section)>(SymbolEqualityComparer.Default);
+      foreach (var section in node.Sections) {
+        foreach (var function in section.Statements.OfType<LocalFunctionStatementSyntax>()) {
+          var symbol = (IMethodSymbol)semanticModel_.GetDeclaredSymbol(function);
+          if (!IsLocalFunctionOfType(function, symbol)) {
+            functions.Add(symbol, (function, section));
+          }
+        }
+      }
+      if (functions.Count == 0) {
+        return;
+      }
+
+      IEnumerable<(IMethodSymbol Symbol, SimpleNameSyntax Name)> Uses(SyntaxNode within) {
+        foreach (var name in within.DescendantNodes().OfType<SimpleNameSyntax>()) {
+          if (semanticModel_.GetSymbolInfo(name).Symbol is IMethodSymbol { MethodKind: MethodKind.LocalFunction } method
+            && functions.ContainsKey(method.OriginalDefinition)) {
+            yield return (method.OriginalDefinition, name);
+          }
+        }
+      }
+
+      var pending = new Stack<IMethodSymbol>();
+      foreach (var (symbol, name) in Uses(node)) {
+        if (!functions[symbol].Section.Statements.Any(i => i.Span.Contains(name.Span))) {
+          pending.Push(symbol);
+        }
+      }
+      var moved = new List<IMethodSymbol>();
+      while (pending.Count > 0) {
+        var symbol = pending.Pop();
+        if (!moved.Contains(symbol, SymbolEqualityComparer.Default)) {
+          moved.Add(symbol);
+          foreach (var (used, _) in Uses(functions[symbol].Node)) {
+            pending.Push(used);
+          }
+        }
+      }
+
+      foreach (var symbol in moved.OrderBy(i => functions[i].Node.SpanStart)) {
+        var function = functions[symbol].Node;
+        foreach (var name in function.DescendantNodes().OfType<IdentifierNameSyntax>()) {
+          if (semanticModel_.GetSymbolInfo(name).Symbol is ILocalSymbol local) {
+            var declaration = local.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax();
+            if (declaration != null && !function.Span.Contains(declaration.Span) && node.Sections.Any(i => i.Span.Contains(declaration.Span))) {
+              throw new CompilationErrorException(name, $"the local function '{symbol.Name}' is used outside its switch section and uses '{local.Name}', which is declared in a section; declare '{local.Name}' above the switch");
+            }
+          }
+        }
+        var definitions = new LuaStatementListSyntax();
+        body.AddStatement(definitions);
+        movedLocalFunctions_[symbol] = definitions;
+        switchLocalFunctions_.Add(symbol);
+        body.AddHeadVariable(GetLocalMethodName(symbol, function));
+      }
     }
 
     public override LuaSyntaxNode VisitLocalFunctionStatement(LocalFunctionStatementSyntax node) {
@@ -1898,10 +1999,12 @@ namespace CSharpLua {
 
         var slicePattern = (SlicePatternSyntax)patterns[sliceIndex];
         if (slicePattern.Pattern != null && !slicePattern.Pattern.IsKind(SyntaxKind.DiscardPattern)) {
+          // The core's slice, as source[start..^tailCount] is: a string's text, an array's elements or a List's Slice.
           int start = sliceIndex;
           int tailCount = patterns.Count - 1 - sliceIndex;
-          LuaExpressionSyntax lengthArg = countExpr.Binary(LuaSyntaxNode.Tokens.Sub, new LuaIdentifierLiteralExpressionSyntax((start + tailCount).ToString()));
-          var sliceInvoke = new LuaInvocationExpressionSyntax(target.MemberAccess("Slice", true), new LuaIdentifierLiteralExpressionSyntax(start.ToString()), lengthArg);
+          var end = new LuaIdentifierLiteralExpressionSyntax(tailCount == 0 ? "-0.0" : (-tailCount).ToString());
+          var range = LuaIdentifierNameSyntax.Range.Invocation(new LuaIdentifierLiteralExpressionSyntax(start.ToString()), end);
+          var sliceInvoke = LuaIdentifierNameSyntax.Range.MemberAccess("slice").Invocation(target, range);
           if (slicePattern.Pattern is VarPatternSyntax varPattern) {
             if (!varPattern.Designation.IsKind(SyntaxKind.DiscardDesignation)) {
               AddLocalVariableMapping(new LuaSymbolNameSyntax(sliceInvoke), varPattern.Designation);
@@ -1951,9 +2054,9 @@ namespace CSharpLua {
 
     /// <summary>
     /// The condition that target, a member read or a deconstructed element, matches a pattern inside a property or
-    /// positional pattern. It is one expression with no statement before it, so the member is read only when the conditions
-    /// before it hold, and read again for each part of the pattern. A variable can be declared only for an element held in a
-    /// local; a variable for a member, or a pattern that needs a statement, stops the compiler with an error.
+    /// positional pattern. It is one expression, so the member is read only when the conditions before it hold, and read
+    /// again for each part of the pattern. A variable for a member is read into a local before the condition, behind the
+    /// pattern's checks on the way to it (AddSubpatternVariable).
     /// </summary>
     private LuaExpressionSyntax BuildSubpatternExpression(LuaExpressionSyntax target, PatternSyntax pattern) {
       switch (pattern) {
@@ -2004,6 +2107,9 @@ namespace CSharpLua {
       }
     }
 
+    // The checks a property pattern makes on the way to the member it is at (not nil, of the pattern's type), innermost last.
+    private readonly List<LuaExpressionSyntax> patternChecks_ = new();
+
     private void AddSubpatternVariable(LuaExpressionSyntax target, VariableDesignationSyntax designation, PatternSyntax pattern) {
       if (designation == null || designation.IsKind(SyntaxKind.DiscardDesignation)) {
         return;
@@ -2012,7 +2118,41 @@ namespace CSharpLua {
         AddLocalVariableMapping(name, designation);
         return;
       }
-      throw new CompilationErrorException(pattern, $"the variable '{designation}' declared for a member in a property pattern is not supported; match the member in the pattern and read it in the code");
+      if (designation is not SingleVariableDesignationSyntax single) {
+        throw new CompilationErrorException(pattern, $"the variables '{designation}' declared for a member in a property pattern are not supported; declare one name");
+      }
+      if (IsInLoopCondition(pattern)) {
+        throw new CompilationErrorException(pattern, $"the variable '{designation}' declared for a member in a property pattern is not supported in a loop's condition, which would read the member once; read it in the loop's body");
+      }
+
+      // Lua has no assignment inside a condition: the member is read into a local before it, behind the checks on the way.
+      // Each such local has a name of its own, as two arms of a switch may declare the same name.
+      var local = GetTempIdentifier();
+      AddLocalVariableMapping(local, single);
+      CurBlock.AddStatement(new LuaLocalVariableDeclaratorSyntax(local));
+      LuaStatementSyntax read = local.Assignment(target);
+      if (patternChecks_.Count > 0) {
+        var ifStatement = new LuaIfStatementSyntax(patternChecks_.Aggregate((x, y) => x.And(y)));
+        ifStatement.Body.AddStatement(read);
+        read = ifStatement;
+      }
+      CurBlock.AddStatement(read);
+    }
+
+    private static bool IsInLoopCondition(SyntaxNode node) {
+      for (var child = node; child.Parent != null; child = child.Parent) {
+        switch (child.Parent) {
+          case WhileStatementSyntax loop:
+            return loop.Condition == child;
+          case DoStatementSyntax loop:
+            return loop.Condition == child;
+          case ForStatementSyntax loop:
+            return loop.Condition == child;
+          case StatementSyntax or AnonymousFunctionExpressionSyntax:
+            return false;
+        }
+      }
+      return false;
     }
 
     public override LuaSyntaxNode VisitIsPatternExpression(IsPatternExpressionSyntax node) {
@@ -2075,7 +2215,7 @@ namespace CSharpLua {
             return new LuaSequenceListExpressionSyntax(expressions);
           }
 
-          if (assignment.Right.IsKind(SyntaxKind.TupleExpression) && assignment.Left.IsKind(SyntaxKind.TupleExpression)) {
+          if (assignment.Right.IsKind(SyntaxKind.TupleExpression) && assignment.Left.Kind().IsTupleDeclaration()) {
             return new LuaSequenceListExpressionSyntax(expressions);
           }
           break;

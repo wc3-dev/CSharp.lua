@@ -45,6 +45,7 @@ local List = {
   ForEach = Array.ForEach,
   GetEnumerator = Array.GetEnumerator,
   GetRange = Array.getRange,
+  Slice = Array.getRange,
   IndexOf = Array.IndexOf,
   Insert = Array.insert,
   InsertRange = Array.insertRange,
