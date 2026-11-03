@@ -106,6 +106,22 @@ local HashSet = {
     v = wrap(v)
     return this.dict:TryAdd(v, true)
   end,
+  -- The set's own value equal to equalValue.
+  TryGetValue = function (this, equalValue)
+    if this:Contains(equalValue) then
+      local comparer = this.dict.comparer
+      if comparer == nil and type(equalValue) ~= "table" then
+        return true, equalValue
+      end
+      comparer = comparer or System.EqualityComparer(this.__genericT__).getDefault()
+      for _, v in each(this) do
+        if comparer:EqualsOf(v, equalValue) then
+          return true, v
+        end
+      end
+    end
+    return false, this.__genericT__:default()
+  end,
   UnionWith = function (this, other)
     if other == nil then
       throw(ArgumentNullException("other"))
@@ -218,7 +234,7 @@ local HashSet = {
       throw(ArgumentNullException("other"))
     end
     local uniqueCount, unfoundCount = checkUniqueAndUnfoundElements(this, other, true)
-    return uniqueCount == #this and unfoundCount == 0
+    return uniqueCount == this:getCount() and unfoundCount == 0
   end,
   RemoveWhere = function (this, match)
     if match == nil then

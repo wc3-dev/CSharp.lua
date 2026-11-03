@@ -18,6 +18,7 @@ local System = System
 local throw = System.throw
 local clear = System.Array.clear
 local toString = System.toString
+local ArgumentException = System.ArgumentException
 local ArgumentNullException = System.ArgumentNullException
 local ArgumentOutOfRangeException = System.ArgumentOutOfRangeException
 local IndexOutOfRangeException = System.IndexOutOfRangeException
@@ -27,8 +28,42 @@ local tconcat = table.concat
 local schar = string.char
 local ssub = string.sub
 local sbyte = string.byte
+local sfind = string.find
+local srep = string.rep
 local type = type
 local select = select
+
+-- A char[] is its characters as text; anything else is its ToString.
+local function textOf(value)
+  if type(value) == "table" and value.__genericT__ == System.Char and System.isArrayLike(value) then
+    return System.String(value)
+  end
+  return toString(value)
+end
+
+-- Puts s in place of the builder's text.
+local function reset(this, s)
+  clear(this)
+  if #s > 0 then
+    this[1] = s
+  end
+  this.Length = #s
+end
+
+local function checkRange(length, startIndex, count)
+  if startIndex < 0 or count < 0 or startIndex + count > length then
+    throw(ArgumentOutOfRangeException("startIndex"))
+  end
+end
+
+local function toStringOf(this, startIndex, length)
+  local s = tconcat(this)
+  if startIndex == nil then
+    return s
+  end
+  checkRange(#s, startIndex, length)
+  return ssub(s, startIndex + 1, startIndex + length)
+end
 
 local function build(this, value, startIndex, length)
   value = value:Substring(startIndex, length)
@@ -62,7 +97,7 @@ end
 
 local StringBuilder = System.define("System.Text.StringBuilder", { 
   Length = 0,
-  ToString = tconcat,
+  ToString = toStringOf,
   __tostring = tconcat,
   __ctor__ = function (this, ...)
     local len = select("#", ...)
@@ -133,7 +168,7 @@ local StringBuilder = System.define("System.Text.StringBuilder", {
   Append = function (this, value, startIndex, count)
     if not startIndex then
       if value ~= nil then
-        value = toString(value)
+        value = textOf(value)
         if value ~= nil then
           this[#this + 1] = value
           this.Length =  this.Length + #value
@@ -143,11 +178,37 @@ local StringBuilder = System.define("System.Text.StringBuilder", {
       if value == nil then
         throw(ArgumentNullException("value"))
       end
-      value = value:Substring(startIndex, count)
+      if type(value) == "string" then
+        value = value:Substring(startIndex, count)
+      else
+        value = System.String(value, startIndex, count)
+      end
       this[#this + 1] = value
       this.Length =  this.Length + #value
     end
     return this
+  end,
+  -- (separator, values...), (separator, values) and (separator, values, T): params come as arguments of their own.
+  AppendJoin = function (this, separator, ...)
+    if type(separator) == "number" then
+      separator = schar(separator)
+    end
+    local n, values = select("#", ...), ...
+    local t, count = {}, 0
+    if n <= 2 and type(values) == "table" and values.GetEnumerator ~= nil then
+      local isChar = select(2, ...) == System.Char
+      for _, v in System.each(values) do
+        count = count + 1
+        t[count] = isChar and schar(v) or (v ~= nil and toString(v) or "")
+      end
+    else
+      for i = 1, n do
+        local v = select(i, ...)
+        count = count + 1
+        t[count] = v ~= nil and toString(v) or ""
+      end
+    end
+    return this:Append(tconcat(t, separator))
   end,
   AppendChar = function (this, v) 
     v = schar(v)
@@ -190,22 +251,76 @@ local StringBuilder = System.define("System.Text.StringBuilder", {
     this.Length = 0
     return this
   end,
-  Insert = function (this, index, value)
-    local length = this.Length
+  -- (index, value), (index, value, count) and (index, char[], startIndex, charCount).
+  Insert = function (this, index, value, count, charCount)
+    if index < 0 or index > this.Length then
+      throw(ArgumentOutOfRangeException("index"))
+    end
     if value ~= nil then
-      if index == length then
-        this:Append(value)
+      if charCount then
+        value = System.String(value, count, charCount)
       else
-        value = toString(value)
-        if value ~= nil then
-          local i, s, j = getItemIndex(this, index)
-          if not i then
-            throw(ArgumentOutOfRangeException("index"))
-          end
-          this[i] = ssub(s, 1, j - 1) .. value .. ssub(s, j)
-          this.Length = length + #value
+        value = textOf(value)
+        if count then
+          if count < 0 then throw(ArgumentOutOfRangeException("count")) end
+          value = srep(value, count)
         end
       end
+      if #value > 0 then
+        local s = tconcat(this)
+        reset(this, ssub(s, 1, index) .. value .. ssub(s, index + 1))
+      end
+    end
+    return this
+  end,
+  InsertChar = function (this, index, c)
+    return this:Insert(index, schar(c))
+  end,
+  Remove = function (this, startIndex, length)
+    checkRange(this.Length, startIndex, length)
+    if length > 0 then
+      local s = tconcat(this)
+      reset(this, ssub(s, 1, startIndex) .. ssub(s, startIndex + length + 1))
+    end
+    return this
+  end,
+  -- Every oldValue inside the range, as it reads before any is replaced; a char comes as its number.
+  Replace = function (this, oldValue, newValue, startIndex, count)
+    if type(oldValue) == "number" then
+      oldValue, newValue = schar(oldValue), schar(newValue)
+    end
+    if oldValue == nil then throw(ArgumentNullException("oldValue")) end
+    if #oldValue == 0 then throw(ArgumentException("oldValue")) end
+    local s = tconcat(this)
+    startIndex = startIndex or 0
+    count = count or #s - startIndex
+    checkRange(#s, startIndex, count)
+    local region = ssub(s, startIndex + 1, startIndex + count)
+    local t, n, i = {}, 0, 1
+    while true do
+      local first, last = sfind(region, oldValue, i, true)
+      if not first then
+        break
+      end
+      t[n + 1], t[n + 2] = ssub(region, i, first - 1), newValue or ""
+      n, i = n + 2, last + 1
+    end
+    if n > 0 then
+      t[n + 1] = ssub(region, i)
+      reset(this, ssub(s, 1, startIndex) .. tconcat(t) .. ssub(s, startIndex + count + 1))
+    end
+    return this
+  end,
+  Equals = function (this, other)
+    return other ~= nil and tconcat(this) == tconcat(other)
+  end,
+  CopyTo = function (this, sourceIndex, destination, destinationIndex, count)
+    if destination == nil then throw(ArgumentNullException("destination")) end
+    local s = tconcat(this)
+    checkRange(#s, sourceIndex, count)
+    System.checkIndexAndCount(destination, destinationIndex, count)
+    for i = 1, count do
+      destination[destinationIndex + i] = sbyte(s, sourceIndex + i)
     end
   end
 })

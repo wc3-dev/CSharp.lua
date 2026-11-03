@@ -32,6 +32,10 @@ local collectgarbage = collectgarbage
 
 define("System.Environment", {
   Exit = os.exit,
+  -- The game's line break, as AppendLine writes it; .NET on Windows has "\r\n".
+  getNewLine = function ()
+    return "\n"
+  end,
   getStackTrace = System.traceback,
   getTickCount = function ()
     return System.currentTimeMillis() % 2147483648
