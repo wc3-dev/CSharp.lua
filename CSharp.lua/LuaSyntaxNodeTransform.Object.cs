@@ -1223,7 +1223,14 @@ namespace CSharpLua {
       var expression = BuildMemberAccessTargetExpression(node.Expression);
       var baseName = symbol == null ? LuaIdentifierNameSyntax.Empty : GetMemberName(symbol);
       var identifierName = new LuaPropertyOrEventIdentifierNameSyntax(true, baseName);
-      var propertyAdapter = new LuaPropertyAdapterExpressionSyntax(expression, identifierName, true);
+      LuaPropertyAdapterExpressionSyntax propertyAdapter;
+      if (symbol != null && IsInternalMember(symbol)) {
+        // A private indexer's accessors are local functions of the class, called as a private property's are.
+        propertyAdapter = new LuaPropertyAdapterExpressionSyntax(identifierName);
+        propertyAdapter.ArgumentList.AddArgument(expression);
+      } else {
+        propertyAdapter = new LuaPropertyAdapterExpressionSyntax(expression, identifierName, true);
+      }
       if (symbol != null) {
         var arguments = BuildArgumentList(symbol, symbol.Parameters, node.ArgumentList);
         propertyAdapter.ArgumentList.AddArguments(arguments);
