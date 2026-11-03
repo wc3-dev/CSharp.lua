@@ -9,7 +9,7 @@ A, C 5 True False
 # T5
 A AB None B
 # T6
-6
+Blue
 # T7
 True
 # T8
@@ -21,7 +21,7 @@ Red;Green;Blue;
 # T11
 g
 # T12
-5000000000
+Big
 # T13
 False Red
 # T14

@@ -1342,6 +1342,32 @@ ValueType = defCls("System.ValueType", {
   end
 })
 
+-- A char or an enum given as an object to a method that writes it as text (String.Format, Console.WriteLine,
+-- StringBuilder.Append...): in Lua both are numbers, so the box keeps what ToString needs.
+local CharText = {
+  ToString = function (this)
+    return string.char(this[1])
+  end
+}
+CharText.__index = CharText
+
+local EnumText = {
+  ToString = function (this, format)
+    return System.EnumToString(this[1], this[2], format)
+  end
+}
+EnumText.__index = EnumText
+
+function System.charText(c)
+  if c == nil then return nil end
+  return setmetatable({ c }, CharText)
+end
+
+function System.enumText(value, T)
+  if value == nil then return nil end
+  return setmetatable({ value, T }, EnumText)
+end
+
 local AnonymousType
 AnonymousType = defCls("System.AnonymousType", {
   -- For with, which copies the object and sets the members it names.

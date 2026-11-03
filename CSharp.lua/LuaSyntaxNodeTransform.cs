@@ -3637,8 +3637,41 @@ namespace CSharpLua {
       foreach (var argument in node.Arguments) {
         FillInvocationArgument(arguments, argument, parameters, refOrOutArguments);
       }
+      CheckTextArguments(symbol, node, arguments);
       CheckInvocationDefaultArguments(symbol, parameters, arguments, node);
       return arguments;
+    }
+
+    // A char or an enum given as an object to a method that writes it as text: in Lua both are numbers, and an object keeps
+    // no type, so it goes in the core's box, whose ToString writes it as .NET does.
+    private void CheckTextArguments(ISymbol symbol, BaseArgumentListSyntax node, List<LuaExpressionSyntax> arguments) {
+      if (symbol?.ContainingType is not { } type || arguments.Count != node.Arguments.Count) {
+        return;
+      }
+      string typeName = type.ToDisplayString();
+      if (typeName is not ("string" or "System.Console" or "System.Text.StringBuilder")) {
+        return;
+      }
+
+      for (int i = 0; i < arguments.Count; ++i) {
+        var expression = node.Arguments[i].Expression;
+        var typeInfo = semanticModel_.GetTypeInfo(expression);
+        ITypeSymbol valueType = null;
+        if (expression is CastExpressionSyntax cast && typeInfo.Type?.SpecialType == SpecialType.System_Object) {
+          valueType = semanticModel_.GetTypeInfo(cast.Expression).Type;
+        } else if (typeInfo.ConvertedType?.SpecialType == SpecialType.System_Object) {
+          valueType = typeInfo.Type;
+        }
+        if (valueType == null) {
+          continue;
+        }
+        if (valueType.SpecialType == SpecialType.System_Char) {
+          arguments[i] = LuaIdentifierNameSyntax.System.MemberAccess("charText").Invocation(arguments[i]);
+        } else if (valueType.IsEnumType(out var enumType, out _)) {
+          AddExportEnum(enumType);
+          arguments[i] = LuaIdentifierNameSyntax.System.MemberAccess("enumText").Invocation(arguments[i], GetTypeShortName(enumType));
+        }
+      }
     }
 
     private LuaArgumentListSyntax BuildArgumentList(SeparatedSyntaxList<ArgumentSyntax> arguments) {
