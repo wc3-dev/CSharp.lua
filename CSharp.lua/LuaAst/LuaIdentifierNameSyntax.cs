@@ -66,6 +66,7 @@ namespace CSharpLua.LuaAst {
     public static readonly LuaIdentifierNameSyntax BitOr = "System.bor";
     public static readonly LuaIdentifierNameSyntax BitXor = "System.xor";
     public static readonly LuaIdentifierNameSyntax ShiftRight = "System.sr";
+    public static readonly LuaIdentifierNameSyntax ShiftRightArithmetic = "System.sar";
     public static readonly LuaIdentifierNameSyntax ShiftLeft = "System.sl";
     public static readonly LuaIdentifierNameSyntax Try = "System.try";
     public static readonly LuaIdentifierNameSyntax CatchFilter = "System.when";
