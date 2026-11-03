@@ -1,1 +1,1 @@
-REFUSED SourceLocation(Case.cs@3:104)"var y": the variable 'y' declared for a member in a property pattern is not supported; match the member in the pattern and read it in the code, please refactor your code.
+7

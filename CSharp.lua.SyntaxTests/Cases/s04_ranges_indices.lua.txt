@@ -1,28 +1,21 @@
 # T1
 5 4
 # T2
-#! T2 attempt to call a nil value (field 'Range')
-T2 EXC
+2 23
 # T3
-#! T3 attempt to call a nil value (field 'Range')
-T3 EXC
+2 2 2 4
 # T4
-#! T4 attempt to call a nil value (field 'Range')
-T4 EXC
+el o he llo
 # T5
-#! T5 attempt to call a nil value (field 'Range')
-T5 EXC
+2 True 1 3
 # T6
-#! T6 Specified argument was out of the range of valid values. (Parameter 'index')
-T6 EXC
+3
 # T7
-#! T7 attempt to call a nil value (field 'Range')
-T7 EXC
+3
 # T8
 9
 # T9
-#! T9 attempt to compare table with number
-T9 EXC
+e
+4
 # T10
-#! T10 attempt to call a nil value (field 'Range')
-T10 EXC
+1

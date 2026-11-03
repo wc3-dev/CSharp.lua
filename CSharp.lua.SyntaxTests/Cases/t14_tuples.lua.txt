@@ -5,8 +5,7 @@
 # T3
 1 4
 # T4
-#! T4 attempt to index a number value (local 'v')
-T4 EXC
+(1, 4)
 # T5
 21
 # T6
@@ -20,8 +19,7 @@ xFalse
 # T9
 z
 # T10
-#! T10 attempt to index a number value (local 'v')
-T10 EXC
+2.5 (1, a, 2.5)
 # T11
 1 9
 # T12

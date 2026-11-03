@@ -15,5 +15,4 @@
 3
 0
 # T8
-#! T8 attempt to call a nil value (method '__clone__')
-T8 EXC
+1 2
