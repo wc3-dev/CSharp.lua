@@ -4022,7 +4022,7 @@ namespace CSharpLua {
           LuaLocalVariablesSyntax deconstruct = null;
           var expression = BuildRecursivePatternExpression(recursivePattern, left, ref deconstruct, switchStatement.Expression);
           if (deconstruct != null) {
-            CurBlock.AddStatement(deconstruct);
+            AddSwitchDeconstruct(deconstruct);
           }
           return BuildSwitchLabelWhenClause(expression, node.WhenClause);
         }
@@ -4086,7 +4086,10 @@ namespace CSharpLua {
       }
     }
 
-    private void CheckSwitchDeconstruct(ref LuaLocalVariablesSyntax deconstruct, LuaIdentifierNameSyntax identifier, ExpressionSyntax type, int count) {
+    // The checks a switch's value passes before its Deconstruct is called: it is not nil, or is of the pattern's type.
+    private readonly Dictionary<LuaLocalVariablesSyntax, LuaExpressionSyntax> deconstructChecks_ = new();
+
+    private void CheckSwitchDeconstruct(ref LuaLocalVariablesSyntax deconstruct, LuaIdentifierNameSyntax identifier, ExpressionSyntax type, ExpressionSyntax value, int count) {
       if (deconstruct == null) {
         var typeSymbol = semanticModel_.GetTypeInfo(type).Type;
         var deconstructInvocation = BuildDeconstructExpression(typeSymbol, identifier, type);
@@ -4096,7 +4099,29 @@ namespace CSharpLua {
         }
         deconstruct.Initializer = new LuaEqualsValueClauseListSyntax();
         deconstruct.Initializer.Values.Add(deconstructInvocation);
+
+        var valueType = semanticModel_.GetTypeInfo(value).Type;
+        var check = valueType.IsNullableType() ? identifier.NotEquals(LuaIdentifierNameSyntax.Nil) : BuildIsPatternExpression(valueType, type, identifier);
+        if (check != LuaIdentifierLiteralExpressionSyntax.True) {
+          deconstructChecks_.Add(deconstruct, check);
+        }
       }
+    }
+
+    private void AddSwitchDeconstruct(LuaLocalVariablesSyntax deconstruct) {
+      if (!deconstructChecks_.Remove(deconstruct, out var check)) {
+        CurBlock.AddStatement(deconstruct);
+        return;
+      }
+
+      var assignment = new LuaMultipleAssignmentExpressionSyntax();
+      assignment.Lefts.AddRange(deconstruct.Variables);
+      assignment.Rights.AddRange(deconstruct.Initializer.Values);
+      deconstruct.Initializer = null;
+      CurBlock.AddStatement(deconstruct);
+      var ifStatement = new LuaIfStatementSyntax(check);
+      ifStatement.Body.AddStatement(assignment);
+      CurBlock.AddStatement(ifStatement);
     }
 
     public LuaExpressionSyntax BuildPropertyPatternNameExpression(LuaExpressionSyntax governingIdentifier, IdentifierNameSyntax nameIdentifier) {
@@ -4167,7 +4192,7 @@ namespace CSharpLua {
           if (governingExpression == null) {
             throw new CompilationErrorException(subpattern, "a positional pattern inside another pattern is not supported");
           }
-          CheckSwitchDeconstruct(ref deconstruct, (LuaIdentifierNameSyntax)governingIdentifier, recursivePattern.Type ?? governingExpression, subpatterns.Count);
+          CheckSwitchDeconstruct(ref deconstruct, (LuaIdentifierNameSyntax)governingIdentifier, recursivePattern.Type ?? governingExpression, governingExpression, subpatterns.Count);
           var variable = deconstruct.Variables[subpatternIndex];
           expression = BuildSubpatternExpression(variable, subpattern.Pattern);
         }
@@ -4223,6 +4248,7 @@ namespace CSharpLua {
 
       LuaIdentifierNameSyntax governingIdentifier;
       LuaLocalVariablesSyntax deconstruct = null;
+      var typeDeconstructs = new List<LuaLocalVariablesSyntax>();
       var governingExpression = node.GoverningExpression.AcceptExpression(this);
       if (node.GoverningExpression.IsKind(SyntaxKind.TupleExpression)) {
         governingIdentifier = null;
@@ -4264,7 +4290,17 @@ namespace CSharpLua {
             if (recursivePattern.Designation != null) {
               AddLocalVariableMapping(governingIdentifier, recursivePattern.Designation);
             }
-            var condition = BuildRecursivePatternExpression(recursivePattern, governingIdentifier, ref deconstruct, node.GoverningExpression);
+            LuaExpressionSyntax condition;
+            if (recursivePattern.Type != null) {
+              // A pattern with a type deconstructs as that type, so arms of different types each have their own.
+              LuaLocalVariablesSyntax typeDeconstruct = null;
+              condition = BuildRecursivePatternExpression(recursivePattern, governingIdentifier, ref typeDeconstruct, node.GoverningExpression);
+              if (typeDeconstruct != null) {
+                typeDeconstructs.Add(typeDeconstruct);
+              }
+            } else {
+              condition = BuildRecursivePatternExpression(recursivePattern, governingIdentifier, ref deconstruct, node.GoverningExpression);
+            }
             FillSwitchPatternSyntax(ref ifStatement, condition, arm.WhenClause, result, arm.Expression);
             break;
           }
@@ -4280,7 +4316,7 @@ namespace CSharpLua {
             int variableIndex = 0;
             foreach (var variable in parenthesizedVariable.Variables) {
               if (!variable.IsKind(SyntaxKind.DiscardDesignation)) {
-                CheckSwitchDeconstruct(ref deconstruct, governingIdentifier, node.GoverningExpression, parenthesizedVariable.Variables.Count);
+                CheckSwitchDeconstruct(ref deconstruct, governingIdentifier, node.GoverningExpression, node.GoverningExpression, parenthesizedVariable.Variables.Count);
                 var variableName = deconstruct.Variables[variableIndex];
                 AddLocalVariableMapping(variableName, variable);
               }
@@ -4317,8 +4353,9 @@ namespace CSharpLua {
       }
 
       if (deconstruct != null) {
-        CurBlock.AddStatement(deconstruct);
+        AddSwitchDeconstruct(deconstruct);
       }
+      typeDeconstructs.ForEach(AddSwitchDeconstruct);
 
       CurBlock.AddStatement(ifStatement);
       return result;
