@@ -33,8 +33,8 @@
     <PackageReleaseNotes></PackageReleaseNotes>
 
     <PackageId>Moonwell.CSharpLua</PackageId>
-    <Version>2.0.4-moonwell.16</Version>
-    <FileVersion>2.0.4.15</FileVersion>
+    <Version>2.0.4-moonwell.18</Version>
+    <FileVersion>2.0.4.18</FileVersion>
     <AssemblyVersion>2.0</AssemblyVersion>
   </PropertyGroup>
 
