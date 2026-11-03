@@ -179,7 +179,29 @@ System.checkIndexAndCount = checkIndexAndCount
 local Array
 local emptys = {}
 
+-- An array's index out of range throws IndexOutOfRangeException, a List's (listGet, listSet) ArgumentOutOfRangeException,
+-- as .NET's do; the two are kept apart rather than checked on each read.
 local function get(t, index)
+  local v = t[index + 1]
+  if v == nil then
+    throw(IndexOutOfRangeException())
+  end
+  if v ~= null then
+    return v
+  end
+  return nil
+end
+
+local function set(t, index, v)
+  index = index + 1
+  if t[index] == nil then
+    throw(IndexOutOfRangeException())
+  end
+  t[index] = v == nil and null or v
+  versions[t] = (versions[t] or 0) + 1
+end
+
+local function listGet(t, index)
   local v = t[index + 1]
   if v == nil then
     throw(ArgumentOutOfRangeException("index"))
@@ -190,7 +212,7 @@ local function get(t, index)
   return nil
 end
 
-local function set(t, index, v)
+local function listSet(t, index, v)
   index = index + 1
   if t[index] == nil then
     throw(ArgumentOutOfRangeException("index"))
@@ -981,6 +1003,8 @@ Array = {
   __call = buildArray,
   set = set,
   get = get,
+  listSet = listSet,
+  listGet = listGet,
   setCapacity = function (t, len)
     if len < #t then throw(ArgumentOutOfRangeException("Value", er.ArgumentOutOfRange_SmallCapacity())) end
   end,

@@ -22,12 +22,8 @@ namespace CSharpLua.SyntaxTests {
     private static readonly string Cases = Path.Combine(LuaRun.Root, "CSharp.lua.SyntaxTests", "Cases");
     private static readonly bool Recording = Environment.GetEnvironmentVariable("CSHARPLUA_RECORD") == "1";
 
-    // Tests whose lines change from run to run, which are run but not compared: Enum.GetValues and Enum.GetNames go by the
-    // order of a Lua table, which is new each run. "" is a case's lines before its first test.
-    private static readonly Dictionary<string, string[]> Unsteady = new() {
-      ["d07_enum_getvalues_order"] = new[] { "" },
-      ["t06_enum"] = new[] { "T8", "T9" },
-    };
+    // Tests whose lines change from run to run, which are run but not compared. "" is a case's lines before its first test.
+    private static readonly Dictionary<string, string[]> Unsteady = new();
 
     [TestMethod]
     public void TestEachCasePrintsWhatWasRecorded() {
