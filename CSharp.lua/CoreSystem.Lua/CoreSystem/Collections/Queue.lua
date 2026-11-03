@@ -19,9 +19,16 @@ local Array = System.Array
 
 local function tryDequeue(this)
   if #this == 0 then
-    return false
+    return false, this.__genericT__:default()
   end
   return true, this:Dequeue()
+end
+
+local function tryPeek(this)
+  if #this == 0 then
+    return false, this.__genericT__:default()
+  end
+  return true, this:Peek()
 end
 
 local Queue = {
@@ -36,7 +43,8 @@ local Queue = {
   Peek = Array.first,
   ToArray = Array.toArray,
   TrimExcess = System.emptyFn,
-  TryDequeue = tryDequeue
+  TryDequeue = tryDequeue,
+  TryPeek = tryPeek
 }
 
 function System.queueFromTable(t, T)
