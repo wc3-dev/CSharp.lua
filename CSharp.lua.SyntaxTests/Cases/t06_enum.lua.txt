@@ -10,19 +10,19 @@ Red
 # T5
 CRASH NullReferenceException: Object reference not set to an instance of an object.
 # T6
-6
+Blue
 # T7
 True
 # T8
 Green,Red,Blue
 # T9
-Red;Blue;Green;
+Blue;Red;Green;
 # T10
 -1 True True
 # T11
 g
 # T12
-5000000000
+Big
 # T13
 False Red
 # T14
