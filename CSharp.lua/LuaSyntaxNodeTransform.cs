@@ -5082,10 +5082,18 @@ namespace CSharpLua {
       }
     }
 
+    // The value ++ or -- gives the operand: one more or less, or what the type's own operator ++ or -- returns.
+    private LuaExpressionSyntax BuildIncrementValue(ExpressionSyntax node, LuaExpressionSyntax value, string operatorToken) {
+      if (IsUserDefinedOperator(node, out var methodSymbol)) {
+        return GetUserDefinedOperatorExpression(methodSymbol, new Func<LuaExpressionSyntax>[] { () => value });
+      }
+      return value.Binary(operatorToken, LuaIdentifierNameSyntax.One);
+    }
+
     private LuaSyntaxNode BuildPrefixUnaryExpression(bool isSingleLine, string operatorToken, LuaExpressionSyntax operand, PrefixUnaryExpressionSyntax node, bool isLocalVar = false) {
       var left = operand;
       CheckIncrementExpression(node.Operand, ref left, true);
-      LuaExpressionSyntax binary = left.Binary(operatorToken, LuaIdentifierNameSyntax.One);
+      LuaExpressionSyntax binary = BuildIncrementValue(node, left, operatorToken);
       CheckIncrementExpression(node.Operand, ref binary, false);
       if (isSingleLine) {
         return operand.Assignment(binary);
@@ -5106,7 +5114,7 @@ namespace CSharpLua {
       set.IsGetOrAdd = false;
       LuaExpressionSyntax left = get;
       CheckIncrementExpression(node.Operand, ref left, true);
-      LuaExpressionSyntax binary = left.Binary(operatorToken, LuaIdentifierNameSyntax.One);
+      LuaExpressionSyntax binary = BuildIncrementValue(node, left, operatorToken);
       CheckIncrementExpression(node.Operand, ref binary, false);
       if (isSingleLine) {
         set.ArgumentList.AddArgument(binary);
@@ -5158,7 +5166,7 @@ namespace CSharpLua {
         return new LuaInvocationExpressionSyntax(LuaIdentifierNameSyntax.Index, expression, LuaIdentifierNameSyntax.True);
       }
 
-      if (IsUserDefinedOperator(node, out var methodSymbol)) {
+      if (kind is not (SyntaxKind.PreIncrementExpression or SyntaxKind.PreDecrementExpression) && IsUserDefinedOperator(node, out var methodSymbol)) {
         var type = semanticModel_.GetTypeInfo(node.Operand).Type;
         if (type != null && type.IsNullableType()) {
           var arguments = new List<Func<LuaExpressionSyntax>>();
@@ -5255,7 +5263,7 @@ namespace CSharpLua {
       if (isSingleLine) {
         var left = operand;
         CheckIncrementExpression(node.Operand, ref left, true);
-        LuaExpressionSyntax binary = left.Binary(operatorToken, LuaIdentifierNameSyntax.One);
+        LuaExpressionSyntax binary = BuildIncrementValue(node, left, operatorToken);
         CheckIncrementExpression(node.Operand, ref binary, false);
         return operand.Assignment(binary);
       } else {
@@ -5263,7 +5271,7 @@ namespace CSharpLua {
         CurBlock.Statements.Add(new LuaLocalVariableDeclaratorSyntax(temp, operand));
         LuaExpressionSyntax left = temp;
         CheckIncrementExpression(node.Operand, ref left, true);
-        LuaExpressionSyntax binary = left.Binary(operatorToken, LuaIdentifierNameSyntax.One);
+        LuaExpressionSyntax binary = BuildIncrementValue(node, left, operatorToken);
         CheckIncrementExpression(node.Operand, ref binary, false);
         CurBlock.Statements.Add(operand.Assignment(binary));
         return temp;
@@ -5275,7 +5283,7 @@ namespace CSharpLua {
       if (isSingleLine) {
         LuaExpressionSyntax left = get;
         CheckIncrementExpression(node.Operand, ref left, true);
-        LuaExpressionSyntax binary = left.Binary(operatorToken, LuaIdentifierNameSyntax.One);
+        LuaExpressionSyntax binary = BuildIncrementValue(node, left, operatorToken);
         CheckIncrementExpression(node.Operand, ref binary, false);
         set.ArgumentList.AddArgument(binary);
         return set;
@@ -5284,7 +5292,7 @@ namespace CSharpLua {
         CurBlock.Statements.Add(new LuaLocalVariableDeclaratorSyntax(temp, get));
         LuaExpressionSyntax left = temp;
         CheckIncrementExpression(node.Operand, ref left, true);
-        LuaExpressionSyntax binary = left.Binary(operatorToken, LuaIdentifierNameSyntax.One);
+        LuaExpressionSyntax binary = BuildIncrementValue(node, left, operatorToken);
         CheckIncrementExpression(node.Operand, ref binary, false);
         set.ArgumentList.AddArgument(binary);
         CurBlock.AddStatement(set);

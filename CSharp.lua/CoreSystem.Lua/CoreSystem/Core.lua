@@ -1305,6 +1305,14 @@ ValueType = defCls("System.ValueType", {
 
 local AnonymousType
 AnonymousType = defCls("System.AnonymousType", {
+  -- For with, which copies the object and sets the members it names.
+  __clone__ = function (this)
+    local t = {}
+    for k, v in pairs(this) do
+      t[k] = v
+    end
+    return setmetatable(t, AnonymousType)
+  end,
   EqualsObj = function (this, obj)
     if getmetatable(obj) ~= AnonymousType then return false end
     for k, v in pairs(this) do

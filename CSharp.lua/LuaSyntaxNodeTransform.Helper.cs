@@ -1557,7 +1557,10 @@ namespace CSharpLua {
     }
 
     private LuaExpressionSyntax GetOperatorMemberAccessExpression(IMethodSymbol methodSymbol) {
-      var methodName = GetMemberName(methodSymbol);
+      // A record's own == and != are the core's (System.RecordType), which every record inherits under their plain names.
+      var methodName = methodSymbol.IsImplicitlyDeclared && methodSymbol.ContainingType.IsRecord
+        ? (LuaIdentifierNameSyntax)methodSymbol.Name
+        : GetMemberName(methodSymbol);
       if (CurTypeSymbol.EQ(methodSymbol.ContainingType)) {
         return methodName;
       }
