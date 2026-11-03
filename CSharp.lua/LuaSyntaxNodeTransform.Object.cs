@@ -705,6 +705,12 @@ namespace CSharpLua {
       var expression = node.FilterExpression.AcceptExpression(this);
       function.AddStatement(new LuaReturnStatementSyntax(expression));
       PopFunction();
+      // A variable the filter declares (when (e is X x)) is read by the catch's block too: it is declared around the filter's
+      // function, which assigns it.
+      foreach (var local in function.Body.Statements.OfType<LuaLocalVariableDeclaratorSyntax>()) {
+        local.Declarator.IsLocalDeclaration = false;
+        CurBlock.AddStatement(new LuaLocalVariableDeclaratorSyntax(local.Declarator.Identifier));
+      }
       return new LuaInvocationExpressionSyntax(LuaIdentifierNameSyntax.CatchFilter, function);
     }
 
