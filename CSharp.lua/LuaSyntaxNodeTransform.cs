@@ -3773,13 +3773,9 @@ namespace CSharpLua {
           bool isConst = false;
           if (node.Parent is LocalDeclarationStatementSyntax {IsConst: true}) {
             isConst = true;
-            if (variable.Initializer.Value is LiteralExpressionSyntax value) {
-              var token = value.Token;
-              if (token.Value is string str) {
-                if (str.Length > kStringConstInlineCount) {
-                  isConst = false;
-                }
-              }
+            // A string too long to be written where it is read is read by its name, so it is declared.
+            if (semanticModel_.GetDeclaredSymbol(variable) is ILocalSymbol { ConstantValue: string str } && str.Length > kStringConstInlineCount) {
+              isConst = false;
             }
           }
           if (!isConst) {
