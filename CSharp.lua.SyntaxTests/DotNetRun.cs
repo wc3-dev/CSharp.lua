@@ -1,4 +1,5 @@
 using System;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -8,7 +9,10 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 
 namespace CSharpLua.SyntaxTests {
-  /// <summary>What a case prints on .NET, written beside its Lua when the cases are recorded.</summary>
+  /// <summary>
+  /// What a case prints on .NET, written beside its Lua when the cases are recorded. It runs in the invariant culture,
+  /// as the game has none: numbers are written 1,234.5 on any machine.
+  /// </summary>
   internal static class DotNetRun {
     // Console.Out is the whole process's.
     private static readonly object Running = new();
@@ -31,13 +35,16 @@ namespace CSharpLua.SyntaxTests {
         var context = new AssemblyLoadContext(null, true);
         var output = new StringWriter();
         var console = Console.Out;
+        var culture = CultureInfo.CurrentCulture;
         Console.SetOut(output);
+        CultureInfo.CurrentCulture = CultureInfo.InvariantCulture;
         try {
           var main = context.LoadFromStream(assembly).EntryPoint;
           main.Invoke(null, main.GetParameters().Length == 0 ? null : new object[] { Array.Empty<string>() });
         } catch (TargetInvocationException e) {
           output.WriteLine("EXCEPTION " + e.InnerException.GetType().Name);
         } finally {
+          CultureInfo.CurrentCulture = culture;
           Console.SetOut(console);
           context.Unload();
         }
