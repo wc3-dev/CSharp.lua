@@ -4217,6 +4217,25 @@ namespace CSharpLua {
       }
     }
 
+    // A positional pattern inside another pattern ({ Pair: (5, 6) }): the member is read into a local and deconstructed before
+    // the condition, behind the checks on the way to it and its own.
+    private LuaLocalVariablesSyntax BuildMemberDeconstruct(RecursivePatternSyntax pattern, LuaExpressionSyntax member, ITypeSymbol inputType, int count) {
+      var value = GetTempIdentifier();
+      CurBlock.AddStatement(new LuaLocalVariableDeclaratorSyntax(value));
+      AddBehindPatternChecks(value.Assignment(member));
+      var type = pattern.Type != null ? semanticModel_.GetTypeInfo(pattern.Type).Type : inputType;
+      var deconstruct = new LuaLocalVariablesSyntax();
+      for (int i = 0; i < count; ++i) {
+        deconstruct.Variables.Add(GetTempIdentifier());
+      }
+      deconstruct.Initializer = new LuaEqualsValueClauseListSyntax();
+      deconstruct.Initializer.Values.Add(BuildDeconstructExpression(type, value, pattern));
+      if (patternChecks_.Count > 0) {
+        deconstructChecks_.Add(deconstruct, patternChecks_.Aggregate((x, y) => x.And(y)));
+      }
+      return deconstruct;
+    }
+
     private void AddSwitchDeconstruct(LuaLocalVariablesSyntax deconstruct) {
       if (!deconstructChecks_.Remove(deconstruct, out var check)) {
         CurBlock.AddStatement(deconstruct);
@@ -4255,22 +4274,18 @@ namespace CSharpLua {
     }
 
     // The property or positional pattern of an is expression or a not pattern. A positional part reads the value's
-    // Deconstruct into locals before the condition, which is safe only for a value that cannot be null.
+    // Deconstruct into locals before the condition, behind the checks a switch makes (not nil, of the pattern's type).
     private LuaExpressionSyntax BuildRecursivePatternExpression(RecursivePatternSyntax recursivePattern, LuaIdentifierNameSyntax governingIdentifier, ExpressionSyntax governingExpression) {
       LuaLocalVariablesSyntax deconstruct = null;
       var condition = BuildRecursivePatternExpression(recursivePattern, governingIdentifier, ref deconstruct, governingExpression);
       if (deconstruct != null) {
-        var type = semanticModel_.GetTypeInfo(governingExpression).Type;
-        if (type is not { IsValueType: true } || type.IsNullableType()) {
-          throw new CompilationErrorException(recursivePattern, "a positional pattern on a value that can be null is not supported here; match its properties ({ X: 1 }) or use a switch statement");
-        }
-        CurBlock.AddStatement(deconstruct);
+        AddSwitchDeconstruct(deconstruct);
       }
       return condition;
     }
 
     // governingExpression is the C# expression tested, or null for a pattern inside another one (a subpattern), where
-    // governingIdentifier is the member read and a positional part, which needs a statement, is not supported.
+    // governingIdentifier is the member read.
     private LuaExpressionSyntax BuildRecursivePatternExpression(RecursivePatternSyntax recursivePattern, LuaExpressionSyntax governingIdentifier, ref LuaLocalVariablesSyntax deconstruct, ExpressionSyntax governingExpression) {
       var inputType = governingExpression != null ? semanticModel_.GetTypeInfo(governingExpression).Type : GetPatternInputType(recursivePattern);
       var subpatterns = recursivePattern.PropertyPatternClause?.Subpatterns ?? recursivePattern.PositionalPatternClause.Subpatterns;
@@ -4286,7 +4301,8 @@ namespace CSharpLua {
       int subpatternIndex = 0;
       foreach (var subpattern in subpatterns) {
         LuaExpressionSyntax expression = null;
-        if (subpattern.NameColon != null) {
+        // In a positional pattern a name only labels its position: (A: 1, B: 2).
+        if (subpattern.NameColon != null && recursivePattern.PositionalPatternClause == null) {
           LuaExpressionSyntax left;
           if (governingIdentifier != null) {
             left = BuildPropertyPatternNameExpression(governingIdentifier, subpattern.NameColon.Name);
@@ -4296,7 +4312,7 @@ namespace CSharpLua {
             left = deconstruct.Variables[subpatternIndex];
           }
           expression = BuildSubpatternExpression(left, subpattern.Pattern);
-        } else if (subpattern.ExpressionColon != null) {
+        } else if (subpattern.ExpressionColon != null && recursivePattern.PositionalPatternClause == null) {
           // { A.B: p } is { A: { B: p } }: each member read on the way is checked not to be nil first.
           var checks = new List<LuaExpressionSyntax>();
           var left = BuildExtendedPropertyPatternMember(governingIdentifier, subpattern.ExpressionColon.Expression, checks);
@@ -4310,9 +4326,10 @@ namespace CSharpLua {
           });
         } else if (!subpattern.Pattern.IsKind(SyntaxKind.DiscardPattern)) {
           if (governingExpression == null) {
-            throw new CompilationErrorException(subpattern, "a positional pattern inside another pattern is not supported");
+            deconstruct ??= BuildMemberDeconstruct(recursivePattern, governingIdentifier, inputType, subpatterns.Count);
+          } else {
+            CheckSwitchDeconstruct(ref deconstruct, (LuaIdentifierNameSyntax)governingIdentifier, recursivePattern.Type ?? governingExpression, governingExpression, subpatterns.Count);
           }
-          CheckSwitchDeconstruct(ref deconstruct, (LuaIdentifierNameSyntax)governingIdentifier, recursivePattern.Type ?? governingExpression, governingExpression, subpatterns.Count);
           var variable = deconstruct.Variables[subpatternIndex];
           expression = BuildSubpatternExpression(variable, subpattern.Pattern);
         }
