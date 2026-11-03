@@ -4835,6 +4835,9 @@ namespace CSharpLua {
       }
 
       var kind = node.Kind();
+      if (kind is SyntaxKind.AddExpression or SyntaxKind.SubtractExpression or SyntaxKind.MultiplyExpression && IsCheckedIntArithmetic(node)) {
+        return BuildCheckedArithmetic(VisitExpression(node.Left), GetOperatorToken(node.OperatorToken), VisitExpression(node.Right));
+      }
       switch (kind) {
         case SyntaxKind.AddExpression:
         case SyntaxKind.SubtractExpression:
@@ -5081,7 +5084,35 @@ namespace CSharpLua {
         }
       } else if (!isAddOrAssignment && IsNarrowedIntegerType(symbol)) {
         expression = GetCastToNumberExpression(expression, symbol, false);
+      } else if (!isAddOrAssignment && IsCurChecked && symbol.SpecialType == SpecialType.System_Int32) {
+        expression = ToCheckedArithmetic(expression);
       }
+    }
+
+    // An int's +, - or * in a checked context, which the core's checked functions do: an overflow throws.
+    private bool IsCheckedIntArithmetic(ExpressionSyntax node) {
+      return IsCurChecked && semanticModel_.GetTypeInfo(node).Type?.SpecialType == SpecialType.System_Int32
+        && semanticModel_.GetSymbolInfo(node).Symbol is IMethodSymbol { MethodKind: MethodKind.BuiltinOperator };
+    }
+
+    private static LuaExpressionSyntax BuildCheckedArithmetic(LuaExpressionSyntax left, string operatorToken, LuaExpressionSyntax right) {
+      string name = operatorToken switch {
+        LuaSyntaxNode.Tokens.Plus => "checkedAdd",
+        LuaSyntaxNode.Tokens.Sub => "checkedSub",
+        _ => "checkedMul",
+      };
+      return LuaIdentifierNameSyntax.System.MemberAccess(name).Invocation(left, right);
+    }
+
+    // The value of ++, -- or a compound assignment, x + 1 or x - y, as its checked call.
+    private static LuaExpressionSyntax ToCheckedArithmetic(LuaExpressionSyntax value) {
+      if (value is LuaParenthesizedExpressionSyntax parenthesized) {
+        value = parenthesized.Expression;
+      }
+      if (value is LuaBinaryExpressionSyntax { OperatorToken: LuaSyntaxNode.Tokens.Plus or LuaSyntaxNode.Tokens.Sub or LuaSyntaxNode.Tokens.Multiply } binary) {
+        return BuildCheckedArithmetic(binary.Left, binary.OperatorToken, binary.Right);
+      }
+      return value;
     }
 
     // C# makes the value of ++, -- and a compound assignment the variable's type, so a byte, sbyte, short or ushort wraps,
@@ -5097,16 +5128,21 @@ namespace CSharpLua {
       }
 
       var type = semanticModel_.GetTypeInfo(leftNode).Type;
-      if (!IsNarrowedIntegerType(type)) {
+      Func<LuaExpressionSyntax, LuaExpressionSyntax> narrow;
+      if (IsNarrowedIntegerType(type)) {
+        narrow = value => GetCastToNumberExpression(value, type, false);
+      } else if (IsCurChecked && type?.SpecialType == SpecialType.System_Int32 && kind != SyntaxKind.DivideAssignmentExpression && kind != SyntaxKind.LeftShiftAssignmentExpression) {
+        narrow = ToCheckedArithmetic;
+      } else {
         return assignment;
       }
 
       switch (assignment) {
         case LuaAssignmentExpressionSyntax simple:
-          return simple.Left.Assignment(GetCastToNumberExpression(simple.Right, type, false));
+          return simple.Left.Assignment(narrow(simple.Right));
         case LuaPropertyAdapterExpressionSyntax property: {
           var arguments = property.ArgumentList.Arguments;
-          arguments[arguments.Count - 1] = GetCastToNumberExpression(arguments[arguments.Count - 1], type, false);
+          arguments[arguments.Count - 1] = narrow(arguments[arguments.Count - 1]);
           return property;
         }
         default:
@@ -5258,6 +5294,9 @@ namespace CSharpLua {
         case SyntaxKind.UnaryMinusExpression: {
           if (operand is LuaLiteralExpressionSyntax {Text: "0"}) {
             return operand;
+          }
+          if (IsCheckedIntArithmetic(node)) {
+            return LuaIdentifierNameSyntax.System.MemberAccess("checkedNeg").Invocation(operand);
           }
           if (IsPreventDebug && IsNullablePrefixUnaryExpression(node, operand, LuaSyntaxNode.Tokens.Sub, out var result)) {
             return result;

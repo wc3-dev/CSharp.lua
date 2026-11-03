@@ -877,6 +877,43 @@ local toInt = System.toInt
 local ToUInt = System.ToUInt
 local ToInt = System.ToInt
 
+-- checked arithmetic of ints: an overflow throws both when the result is outside an int's range (64-bit integers) and
+-- when its sign shows a 32-bit wrap (the game's Lua, whose integers wrap at 32 bits).
+local function checkedOverflow()
+  throw(System.OverflowException(), 2)
+end
+
+function System.checkedAdd(a, b)
+  local r = a + b
+  if r > 2147483647 or r < -2147483648 or ((a ~ r) & (b ~ r)) < 0 then
+    checkedOverflow()
+  end
+  return r
+end
+
+function System.checkedSub(a, b)
+  local r = a - b
+  if r > 2147483647 or r < -2147483648 or ((a ~ b) & (a ~ r)) < 0 then
+    checkedOverflow()
+  end
+  return r
+end
+
+function System.checkedMul(a, b)
+  local r = a * b
+  if r > 2147483647 or r < -2147483648 or (a ~= 0 and (r // a ~= b or (a == -1 and b == -2147483648))) then
+    checkedOverflow()
+  end
+  return r
+end
+
+function System.checkedNeg(a)
+  if a == -2147483648 then
+    checkedOverflow()
+  end
+  return -a
+end
+
 function System.toByte(v, checked)
   return toUInt(v, 255, 0xff, checked)
 end
