@@ -1670,9 +1670,9 @@ namespace CSharpLua {
     /// C# gives a switch's sections one scope, but each section is a block of its own in Lua, where a local function of one
     /// section is not seen from another section or from a case label. A local function used outside its section, and the
     /// local functions of the sections it calls, are declared above the sections in <paramref name="body"/> and assigned
-    /// there.
+    /// there. Returns the moved functions.
     /// </summary>
-    private void MoveSwitchLocalFunctions(SwitchStatementSyntax node, LuaBlockSyntax body) {
+    private List<LocalFunctionStatementSyntax> MoveSwitchLocalFunctions(SwitchStatementSyntax node, LuaBlockSyntax body) {
       var functions = new Dictionary<IMethodSymbol, (LocalFunctionStatementSyntax Node, SwitchSectionSyntax Section)>(SymbolEqualityComparer.Default);
       foreach (var section in node.Sections) {
         foreach (var function in section.Statements.OfType<LocalFunctionStatementSyntax>()) {
@@ -1682,8 +1682,9 @@ namespace CSharpLua {
           }
         }
       }
+      var movedFunctions = new List<LocalFunctionStatementSyntax>();
       if (functions.Count == 0) {
-        return;
+        return movedFunctions;
       }
 
       IEnumerable<(IMethodSymbol Symbol, SimpleNameSyntax Name)> Uses(SyntaxNode within) {
@@ -1714,19 +1715,46 @@ namespace CSharpLua {
 
       foreach (var symbol in moved.OrderBy(i => functions[i].Node.SpanStart)) {
         var function = functions[symbol].Node;
-        foreach (var name in function.DescendantNodes().OfType<IdentifierNameSyntax>()) {
-          if (semanticModel_.GetSymbolInfo(name).Symbol is ILocalSymbol local) {
-            var declaration = local.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax();
-            if (declaration != null && !function.Span.Contains(declaration.Span) && node.Sections.Any(i => i.Span.Contains(declaration.Span))) {
-              throw new CompilationErrorException(name, $"the local function '{symbol.Name}' is used outside its switch section and uses '{local.Name}', which is declared in a section; declare '{local.Name}' above the switch");
-            }
-          }
-        }
         var definitions = new LuaStatementListSyntax();
         body.AddStatement(definitions);
         movedLocalFunctions_[symbol] = definitions;
         switchLocalFunctions_.Add(symbol);
         body.AddHeadVariable(GetLocalMethodName(symbol, function));
+        movedFunctions.Add(function);
+      }
+      return movedFunctions;
+    }
+
+    /// <summary>
+    /// A local declared in one of a switch's sections can be used in another one in C#, where the other section would
+    /// write a global of its name in Lua. Such a local, and one a function in <paramref name="movedFunctions"/> uses, is
+    /// declared above the sections in <paramref name="body"/> and assigned where C# declares it.
+    /// </summary>
+    private void MoveSwitchLocals(SwitchStatementSyntax node, LuaBlockSyntax body, List<LocalFunctionStatementSyntax> movedFunctions) {
+      var moved = new HashSet<ILocalSymbol>(SymbolEqualityComparer.Default);
+      foreach (var name in node.Sections.SelectMany(i => i.DescendantNodes()).OfType<IdentifierNameSyntax>()) {
+        if (semanticModel_.GetSymbolInfo(name).Symbol is not ILocalSymbol local || moved.Contains(local)) {
+          continue;
+        }
+        var declaration = local.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax();
+        var section = declaration == null ? null : node.Sections.FirstOrDefault(i => i.Statements.Any(j => j.Span.Contains(declaration.Span)));
+        if (section == null) {
+          continue;
+        }
+        bool isOutside = !section.Statements.Any(i => i.Span.Contains(name.Span))
+          || movedFunctions.Any(i => i.Span.Contains(name.Span) && !i.Span.Contains(declaration.Span));
+        if (!isOutside) {
+          continue;
+        }
+        moved.Add(local);
+        if (local.IsConst) {
+          inlinedConstLocals_.Add(local);
+        } else if (declaration.Parent?.Parent is LocalDeclarationStatementSyntax statement && statement.Parent == section
+          && !statement.UsingKeyword.IsKeyword() && !local.IsRef) {
+          movedLocalVariables_[local] = body;
+        } else {
+          throw new CompilationErrorException(name, $"'{local.Name}' is declared in one switch section and used in another in a way that cannot be moved; declare '{local.Name}' above the switch");
+        }
       }
     }
 
