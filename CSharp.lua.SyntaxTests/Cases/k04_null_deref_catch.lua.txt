@@ -1,1 +1,1 @@
-EXCEPTION System.Exception: attempt to get length of a nil value (upvalue 's')
+nre

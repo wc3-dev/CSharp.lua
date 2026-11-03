@@ -1,22 +1,21 @@
-whole file: CRASH NullReferenceException: Object reference not set to an instance of an object.
 # T1
 Green 6
 # T2
-CRASH NullReferenceException: Object reference not set to an instance of an object.
+Green 99
 # T3
 Red
 # T4
-5 5 True False
+A, C 5 True False
 # T5
-CRASH NullReferenceException: Object reference not set to an instance of an object.
+A AB None B
 # T6
 Blue
 # T7
 True
 # T8
-Green,Red,Blue
+Red,Green,Blue
 # T9
-Blue;Red;Green;
+Red;Green;Blue;
 # T10
 -1 True True
 # T11
@@ -31,6 +30,6 @@ T14 EXC
 # T15
 1
 # T16
-AB 7 8
+AB AB, C 8
 # T17
-Blue Blue 6
+Blue 6 6

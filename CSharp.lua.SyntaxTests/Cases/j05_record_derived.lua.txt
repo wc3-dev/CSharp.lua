@@ -1,2 +1,2 @@
-Derived { C = 3 }
-LUA ERROR attempt to call a nil value (field 'op_Equality1')
+Derived { A = 1, B = q, C = 3 }
+True

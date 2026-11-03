@@ -23,8 +23,7 @@ f-finally
 g-finally
 2
 # T11
-#! T11 attempt to get length of a nil value (upvalue 's')
-T11 EXC
+nre
 # T12
 ice
 # T13
@@ -39,14 +38,13 @@ b0f0f1f2
 # T17
 nie
 # T18
-#! T18 attempt to index a nil value (global 'ioe')
-T18 EXC
+ioe
 # T19
 True True System.Exception
 # T20
 True 1 custom
 # T21
-False
+True
 # T22
 True
 # T23
@@ -61,7 +59,7 @@ Exception
 KeyNotFoundException
 ArithmeticException
 # T27
-Exception
+NullReferenceException
 # T28
 #! T28 attempt to call a nil value (method 'setSource')
 T28 EXC

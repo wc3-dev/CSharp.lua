@@ -30,8 +30,7 @@ CRASH NullReferenceException: Object reference not set to an instance of an obje
 # T14
 3x12
 # T15
-#! T15 attempt to perform arithmetic on a table value (local 'a')
-T15 EXC
+3
 # T16
 4 1 2
 # T17
