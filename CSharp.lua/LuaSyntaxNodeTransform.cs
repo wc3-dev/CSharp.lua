@@ -2271,15 +2271,18 @@ namespace CSharpLua {
         IsDeclaration = (argument.Expression.IsKind(SyntaxKind.DeclarationExpression) && !IsSpecial) || expression == LuaIdentifierNameSyntax.Placeholder;
       }
 
+      // An out variable declared in a part of an expression that runs only sometimes (the right of &&, || or ??, a
+      // branch of a conditional) is written in an if, so it is declared at the function's head to be seen after it.
       private static bool IsInSpecialBinaryExpression(ArgumentSyntax argument) {
         if (argument.Expression.IsKind(SyntaxKind.DeclarationExpression)) {
-          var invocationExpression = (InvocationExpressionSyntax)argument.Parent.Parent;
-          var parent = invocationExpression.Parent;
-          if (parent.IsKind(SyntaxKind.LogicalAndExpression) || parent.IsKind(SyntaxKind.LogicalOrExpression)) {
-            var binaryExpression = (BinaryExpressionSyntax)parent;
-            if (binaryExpression.Right == invocationExpression) {
-              return true;
+          SyntaxNode current = argument.Parent.Parent;
+          while (current.Parent is ExpressionSyntax parent and not AnonymousFunctionExpressionSyntax) {
+            switch (parent) {
+              case BinaryExpressionSyntax binary when binary.Right == current && binary.Kind() is SyntaxKind.LogicalAndExpression or SyntaxKind.LogicalOrExpression or SyntaxKind.CoalesceExpression:
+              case ConditionalExpressionSyntax conditional when conditional.Condition != current:
+                return true;
             }
+            current = parent;
           }
         }
         return false;
@@ -5973,10 +5976,29 @@ namespace CSharpLua {
 
         LuaExpressionSyntax Accept(ExpressionSyntax expressionNode) => Parenthesized(VisitExpression(expressionNode));
 
+        // A branch that needs statements of its own, such as a call with an out argument, runs them only when it is
+        // taken: the conditional is then an if. The temporary is taken before the branches, whose own are given back.
         var condition = Parenthesized(VisitCondition(node.Condition));
+        var temp = GetTempIdentifier();
+        var ifStatement = new LuaIfStatementSyntax(condition);
+        PushBlock(ifStatement.Body);
         var whenTrue = Accept(node.WhenTrue);
+        PopBlock();
+        var elseClause = new LuaElseClauseSyntax();
+        PushBlock(elseClause.Body);
         var whenFalse = Accept(node.WhenFalse);
-        return condition.And(whenTrue).Or(whenFalse);
+        PopBlock();
+        if (ifStatement.Body.Statements.Count == 0 && elseClause.Body.Statements.Count == 0) {
+          PopTempCount(1);
+          return condition.And(whenTrue).Or(whenFalse);
+        }
+
+        ifStatement.Body.AddStatement(temp.Assignment(whenTrue));
+        elseClause.Body.AddStatement(temp.Assignment(whenFalse));
+        ifStatement.Else = elseClause;
+        CurBlock.AddStatement(new LuaLocalVariableDeclaratorSyntax(temp));
+        CurBlock.AddStatement(ifStatement);
+        return temp;
       }
     }
 
