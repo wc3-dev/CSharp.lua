@@ -1945,9 +1945,9 @@ namespace CSharpLua {
 
     /// <summary>
     /// The condition that target, a member read or a deconstructed element, matches a pattern inside a property or
-    /// positional pattern. It is one expression with no statement before it, so the member is read only when the conditions
-    /// before it hold, and read again for each part of the pattern. A variable can be declared only for an element held in a
-    /// local; a variable for a member, or a pattern that needs a statement, stops the compiler with an error.
+    /// positional pattern. It is one expression, so the member is read only when the conditions before it hold, and read
+    /// again for each part of the pattern. A variable for a member is read into a local before the condition, behind the
+    /// pattern's checks on the way to it (AddSubpatternVariable).
     /// </summary>
     private LuaExpressionSyntax BuildSubpatternExpression(LuaExpressionSyntax target, PatternSyntax pattern) {
       switch (pattern) {
