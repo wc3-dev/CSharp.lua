@@ -1,2 +1,2 @@
-Blue;Red;Green;
-Blue,Red,Green
+Red;Green;Blue;
+Red,Green,Blue

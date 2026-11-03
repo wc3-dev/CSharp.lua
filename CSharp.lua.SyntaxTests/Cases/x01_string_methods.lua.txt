@@ -3,8 +3,7 @@
 # T2
 4 7 8 8 -1 0
 # T3
-#! T3 attempt to get length of a number value (local 'prefix')
-T3 EXC
+True True True True True False
 # T4
 4 a|b||c
 3
@@ -26,13 +25,11 @@ False
 #! T12 attempt to call a nil value (method 'Clone')
 T12 EXC
 # T13
-#! T13 ?
-T13 EXC
+4 3 3 2 1
 # T14
 xy1c2.5True
 # T15
-#! T15 assertion failed!
-T15 EXC
+5 olleH 2 h o bcd
 # T16
 Hello World
 # T17
@@ -44,8 +41,7 @@ True 2 1 0 0
 aoor
 ioor
 # T20
-#! T20 Specified argument was out of the range of valid values. (Parameter 'startIndex')
-T20 EXC
+4 1 4 -1 5
 # T21
 True True 0 True a
 # T22
@@ -55,8 +51,7 @@ ab |x|a,b
 # T24
 b bXc cba
 # T25
-#! T25 attempt to call a nil value (field 'Range')
-T25 EXC
+3 2 T b
 # T26
 #! T26 attempt to call a nil value (field 'Intern')
 T26 EXC
