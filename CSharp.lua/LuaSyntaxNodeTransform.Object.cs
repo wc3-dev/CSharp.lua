@@ -349,6 +349,39 @@ namespace CSharpLua {
       return node.Expression.Accept(this);
     }
 
+    private ITypeSymbol GetCollectionElementType(ITypeSymbol targetType) {
+      if (targetType is IArrayTypeSymbol arrayTypeSymbol) {
+        return arrayTypeSymbol.ElementType;
+      }
+      if (targetType != null && targetType.IsSpanOrReadOnlySpan()) {
+        return ((INamedTypeSymbol)targetType).TypeArguments[0];
+      }
+      if (targetType is INamedTypeSymbol namedTypeSymbol) {
+        return namedTypeSymbol.TypeArguments.FirstOrDefault()
+          ?? namedTypeSymbol.AllInterfaces.FirstOrDefault(i => i.IsGenericIEnumerableType())?.TypeArguments.FirstOrDefault()
+          ?? semanticModel_.Compilation.GetSpecialType(SpecialType.System_Object);
+      }
+      return semanticModel_.Compilation.GetSpecialType(SpecialType.System_Object);
+    }
+
+    // A collection of targetType holding the elements, as a collection expression with no spread builds it.
+    private LuaExpressionSyntax BuildCollection(ITypeSymbol targetType, List<LuaExpressionSyntax> elementExpressions) {
+      var elementType = GetCollectionElementType(targetType);
+      var effectiveArrayTypeSymbol = targetType as IArrayTypeSymbol ?? semanticModel_.Compilation.CreateArrayTypeSymbol(elementType);
+      var arrayTypeAdapter = new LuaArrayTypeAdapterExpressionSyntax(GetTypeName(effectiveArrayTypeSymbol), new LuaArrayRankSpecifierSyntax(1));
+      var arrayExpr = BuildArray(elementType, arrayTypeAdapter, elementExpressions);
+      if (targetType is IArrayTypeSymbol || (targetType is INamedTypeSymbol it && it.TypeKind == TypeKind.Interface)) {
+        return arrayExpr;
+      }
+      if (targetType != null && targetType.IsSpanOrReadOnlySpan()) {
+        return BuildSpanConstructionExpression(targetType, arrayExpr);
+      }
+      if (targetType != null && targetType is INamedTypeSymbol namedTarget && namedTarget.TypeKind == TypeKind.Class) {
+        return new LuaInvocationExpressionSyntax(GetTypeName(targetType), arrayExpr);
+      }
+      return arrayExpr;
+    }
+
     public override LuaSyntaxNode VisitCollectionExpression(CollectionExpressionSyntax node) {
       var typeInfo = semanticModel_.GetTypeInfo(node);
       var targetType = typeInfo.ConvertedType ?? typeInfo.Type;
@@ -369,18 +402,7 @@ namespace CSharpLua {
       var effectiveArrayTypeSymbol = targetType as IArrayTypeSymbol ?? semanticModel_.Compilation.CreateArrayTypeSymbol(elementType);
       if (!hasSpread) {
         var elementExpressions = node.Elements.OfType<ExpressionElementSyntax>().Select(e => e.Expression.AcceptExpression(this)).ToList();
-        var arrayTypeAdapter = new LuaArrayTypeAdapterExpressionSyntax(GetTypeName(effectiveArrayTypeSymbol), new LuaArrayRankSpecifierSyntax(1));
-        var arrayExpr = BuildArray(elementType, arrayTypeAdapter, elementExpressions);
-        if (targetType is IArrayTypeSymbol || (targetType is INamedTypeSymbol it && it.TypeKind == TypeKind.Interface)) {
-          return arrayExpr;
-        }
-        if (targetType != null && targetType.IsSpanOrReadOnlySpan()) {
-          return BuildSpanConstructionExpression(targetType, arrayExpr);
-        }
-        if (targetType != null && targetType is INamedTypeSymbol namedTarget && namedTarget.TypeKind == TypeKind.Class) {
-          return new LuaInvocationExpressionSyntax(GetTypeName(targetType), arrayExpr);
-        }
-        return arrayExpr;
+        return BuildCollection(targetType, elementExpressions);
       } else {
         var listTypeSymbol = semanticModel_.Compilation.GetTypeByMetadataName("System.Collections.Generic.List`1")?.Construct(elementType);
         var listTypeName = listTypeSymbol != null ? GetTypeName(listTypeSymbol) : LuaIdentifierNameSyntax.System.MemberAccess("List").Invocation(GetTypeName(elementType));

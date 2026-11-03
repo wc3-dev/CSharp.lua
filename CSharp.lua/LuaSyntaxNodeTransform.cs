@@ -2626,7 +2626,9 @@ namespace CSharpLua {
       if (parameters.Length > arguments.Count) {
         var optionalParameters = parameters.Skip(arguments.Count);
         foreach (IParameterSymbol parameter in optionalParameters) {
-          if (parameter.IsParams) {
+          if (parameter.IsParams && parameter.Type is INamedTypeSymbol { IsValueType: false }) {
+            arguments.Add(BuildParamsCollection(parameter.Type, new List<LuaExpressionSyntax>()));
+          } else if (parameter.IsParams) {
             ITypeSymbol arrayElemnetType;
             if (parameter.Type.IsValueType) {
               var namedTypeSymbol = (INamedTypeSymbol)parameter.Type;
@@ -2644,7 +2646,9 @@ namespace CSharpLua {
         }
       } else if (!parameters.IsEmpty) {
         IParameterSymbol last = parameters.Last();
-        if (last.IsParams && generator_.IsFromLuaModule(symbol) && !generator_.HasParamsAttribute(symbol)) {
+        // A lambda's or a delegate's params is packed as a method's is.
+        bool isCodeParams = generator_.IsFromLuaModule(symbol) || symbol is IMethodSymbol { MethodKind: MethodKind.DelegateInvoke or MethodKind.AnonymousFunction };
+        if (last.IsParams && isCodeParams && !generator_.HasParamsAttribute(symbol)) {
           if (parameters.Length == arguments.Count) {
             var paramsArgument = argumentNodeInfos.Last();
             if (paramsArgument.Name != null) {
@@ -2653,20 +2657,17 @@ namespace CSharpLua {
                 paramsArgument = argumentNodeInfos.First(i => i.Name != null && i.Name.Name.Identifier.ValueText == last.Name);
               }
             }
+            // An argument that already is the parameter's collection is passed as it is.
             var paramsType = semanticModel_.GetTypeInfo(paramsArgument.Expression).Type;
-            bool isLastParamsArrayType = paramsType is {TypeKind: TypeKind.Array};
-            if (!isLastParamsArrayType) {
-              var arrayTypeSymbol = (IArrayTypeSymbol)last.Type;
-              var array = BuildArray(arrayTypeSymbol, arguments.Last());
-              arguments[^1] = array;
+            bool isCollection = paramsType != null && semanticModel_.Compilation.ClassifyConversion(paramsType, last.Type).IsImplicit;
+            if (!isCollection) {
+              arguments[^1] = BuildParamsCollection(last.Type, new List<LuaExpressionSyntax> { arguments.Last() });
             }
           } else {
             int otherParameterCount = parameters.Length - 1;
-            var arrayTypeSymbol = (IArrayTypeSymbol)last.Type;
-            var paramsArguments = arguments.Skip(otherParameterCount).ToArray();
-            var array = BuildArray(arrayTypeSymbol, paramsArguments);
+            var paramsArguments = arguments.Skip(otherParameterCount).ToList();
             arguments.RemoveRange(otherParameterCount, arguments.Count - otherParameterCount);
-            arguments.Add(array);
+            arguments.Add(BuildParamsCollection(last.Type, paramsArguments));
           }
         }
       }
@@ -2677,6 +2678,12 @@ namespace CSharpLua {
           arguments[i] = defaultValue;
         }
       }
+    }
+
+    // params int[] is an array; params List<int>, IEnumerable<int> or a span (C# 13) is the collection a collection
+    // expression of its type is.
+    private LuaExpressionSyntax BuildParamsCollection(ITypeSymbol type, List<LuaExpressionSyntax> elements) {
+      return type is IArrayTypeSymbol arrayTypeSymbol ? BuildArray(arrayTypeSymbol, elements.ToArray()) : BuildCollection(type, elements);
     }
 
     private void CheckInvocationDefaultArguments(ISymbol symbol, ImmutableArray<IParameterSymbol> parameters, List<LuaExpressionSyntax> arguments, BaseArgumentListSyntax node) {
