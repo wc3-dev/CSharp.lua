@@ -19,8 +19,7 @@
 # T8
 5
 # T9
-#! T9 attempt to index a nil value (field 'BitOperations')
-T9 EXC
+8 31 3
 # T10
 1099511627776 4 1099511627777
 # T11
@@ -30,5 +29,4 @@ T9 EXC
 # T13
 8
 # T14
-#! T14 attempt to call a nil value (field 'RotateLeft')
-T14 EXC
+2 2147483648

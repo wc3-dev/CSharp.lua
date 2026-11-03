@@ -112,9 +112,14 @@ local function bigMul(a, b)
   return a * b
 end
 
-local function divRem(a, b)
-  local remainder = a % b
-  return (a - remainder) / b, remainder
+-- A quotient toward zero and a remainder of the dividend's sign, as C# divides ints: DivRem(a, b, out remainder) gives
+-- both, DivRem(a, b) a tuple.
+local function divRem(a, b, ...)
+  local quotient, remainder = System.div(a, b), System.mod(a, b)
+  if select("#", ...) > 0 then
+    return quotient, remainder
+  end
+  return System.ValueTuple(System.Int32, System.Int32)(quotient, remainder)
 end
 
 local function round(value, digits, mode)

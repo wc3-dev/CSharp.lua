@@ -1,7 +1,7 @@
 # T1
 False True 4 True True False 3
 # T2
-4 2 1 True True False
+4 2 1 True True True
 # T3
 a,b True
 # T4
@@ -14,15 +14,13 @@ a,b True
 # T7
 empty
 False True
-#! T7 attempt to call a nil value (method 'TryPeek')
-T7 EXC
+Truea
 # T8
 3 3 2 True 2,1
 # T9
 cba
 empty
-#! T9 attempt to call a nil value (method 'TryPop')
-T9 EXC
+False 0
 # T10
 3 3
 0
@@ -37,8 +35,7 @@ abc
 # T14
 1,2,3 1 3
 # T15
-#! T15 attempt to call a nil value (field 'BitArray')
-T15 EXC
+True 8
 # T16
 3
 # T17

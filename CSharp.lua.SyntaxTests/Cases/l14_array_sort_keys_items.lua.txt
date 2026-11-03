@@ -1,1 +1,1 @@
-LUA ERROR attempt to compare table with number
+abc

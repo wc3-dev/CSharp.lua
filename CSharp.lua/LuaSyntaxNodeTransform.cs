@@ -2256,6 +2256,7 @@ namespace CSharpLua {
 
     private sealed class RefOrOutArgument {
       public LuaExpressionSyntax Expression { get; }
+      public ArgumentSyntax Argument { get; }
       public bool IsDeclaration { get; }
       public bool IsSpecial { get; }
 
@@ -2265,32 +2266,46 @@ namespace CSharpLua {
 
       public RefOrOutArgument(LuaExpressionSyntax expression, ArgumentSyntax argument) {
         Expression = expression;
+        Argument = argument;
         IsSpecial = IsInSpecialBinaryExpression(argument);
         IsDeclaration = (argument.Expression.IsKind(SyntaxKind.DeclarationExpression) && !IsSpecial) || expression == LuaIdentifierNameSyntax.Placeholder;
       }
 
+      // An out variable declared in a part of an expression that runs only sometimes (the right of &&, || or ??, a
+      // branch of a conditional) is written in an if, so it is declared at the function's head to be seen after it.
       private static bool IsInSpecialBinaryExpression(ArgumentSyntax argument) {
         if (argument.Expression.IsKind(SyntaxKind.DeclarationExpression)) {
-          var invocationExpression = (InvocationExpressionSyntax)argument.Parent.Parent;
-          var parent = invocationExpression.Parent;
-          if (parent.IsKind(SyntaxKind.LogicalAndExpression) || parent.IsKind(SyntaxKind.LogicalOrExpression)) {
-            var binaryExpression = (BinaryExpressionSyntax)parent;
-            if (binaryExpression.Right == invocationExpression) {
-              return true;
+          SyntaxNode current = argument.Parent.Parent;
+          while (current.Parent is ExpressionSyntax parent and not AnonymousFunctionExpressionSyntax) {
+            switch (parent) {
+              case BinaryExpressionSyntax binary when binary.Right == current && binary.Kind() is SyntaxKind.LogicalAndExpression or SyntaxKind.LogicalOrExpression or SyntaxKind.CoalesceExpression:
+              case ConditionalExpressionSyntax conditional when conditional.Condition != current:
+                return true;
             }
+            current = parent;
           }
         }
         return false;
       }
     }
 
+    // A struct that can change, given back through an out argument by a method of the core, is the core's own value.
+    private bool IsOutOfCoreStruct(IMethodSymbol symbol, RefOrOutArgument argument) {
+      return symbol != null && generator_.IsFromAssembly(symbol) && argument.Argument is { } syntax
+        && syntax.RefKindKeyword.IsKind(SyntaxKind.OutKeyword) && argument.Expression != LuaIdentifierNameSyntax.Placeholder
+        && semanticModel_.GetTypeInfo(syntax.Expression).Type is { } type
+        && type.IsCustomValueType() && !generator_.IsReadOnlyStruct(type) && !type.IsNullableWithBasicElementType();
+    }
+
     private LuaExpressionSyntax BuildInvokeRefOrOut(CSharpSyntaxNode node, LuaExpressionSyntax invocation, IEnumerable<RefOrOutArgument> refOrOutArguments) {
       var locals = new LuaLocalVariablesSyntax();
       var multipleAssignment = new LuaMultipleAssignmentExpressionSyntax();
       var propertyStatements = new LuaStatementListSyntax();
+      var method = semanticModel_.GetSymbolInfo(node).Symbol as IMethodSymbol;
 
       void FillRefOrOutArguments() {
         foreach (var refOrOutArgument in refOrOutArguments) {
+          bool isCopied = IsOutOfCoreStruct(method, refOrOutArgument);
           // fn(out arr[0])
           if (refOrOutArgument.Expression is LuaPropertyAdapterExpressionSyntax propertyAdapter) {
             var propertyTemp = GetTempIdentifier();
@@ -2299,7 +2314,7 @@ namespace CSharpLua {
 
             var setPropertyAdapter = propertyAdapter.GetClone();
             setPropertyAdapter.IsGetOrAdd = false;
-            setPropertyAdapter.ArgumentList.AddArgument(propertyTemp);
+            setPropertyAdapter.ArgumentList.AddArgument(isCopied ? LuaIdentifierNameSyntax.NullableClone.Invocation(propertyTemp) : propertyTemp);
             propertyStatements.Statements.Add(setPropertyAdapter);
           } else {
             if (refOrOutArgument.IsDeclaration) {
@@ -2308,6 +2323,10 @@ namespace CSharpLua {
               CurFunction.Body.AddHeadVariable((LuaIdentifierNameSyntax)refOrOutArgument.Expression);
             }
             multipleAssignment.Lefts.Add(refOrOutArgument.Expression);
+            if (isCopied) {
+              var copy = refOrOutArgument.Expression.Assignment(LuaIdentifierNameSyntax.NullableClone.Invocation(refOrOutArgument.Expression));
+              propertyStatements.Statements.Add(new LuaExpressionStatementSyntax(copy));
+            }
           }
         }
       }
@@ -3126,8 +3145,10 @@ namespace CSharpLua {
       return symbol.IsStatic ? GetTypeName(symbol.ContainingType) : LuaIdentifierNameSyntax.This;
     }
 
+    // Inside its class an auto-property is read as its field, but only when nothing can override it: an abstract property
+    // has no field, and an override of a virtual one would never be asked.
     private bool IsPropertyField(IdentifierNameSyntax node, IPropertySymbol propertySymbol) {
-      return IsPropertyField(propertySymbol) || (IsInternalNode(node) && generator_.IsAutoProperty(propertySymbol));
+      return IsPropertyField(propertySymbol) || (IsInternalNode(node) && !propertySymbol.IsOverridable() && generator_.IsAutoProperty(propertySymbol));
     }
 
     private LuaExpressionSyntax VisitPropertyOrEventIdentifierName(IdentifierNameSyntax node, ISymbol symbol, bool isProperty, out bool isField) {
@@ -4013,7 +4034,7 @@ namespace CSharpLua {
         switchStatement.Temp = temp;
         switchStatement.Body.Statements.Add(new LuaLocalVariableDeclaratorSyntax(temp, expression));
       }
-      MoveSwitchLocalFunctions(node, switchStatement.Body);
+      MoveSwitchLocals(node, switchStatement.Body, MoveSwitchLocalFunctions(node, switchStatement.Body));
       switchStatement.Fill(node.Sections.Select(i => i.Accept<LuaStatementSyntax>(this)));
       PopBlock();
       switches_.Pop();
@@ -5955,10 +5976,29 @@ namespace CSharpLua {
 
         LuaExpressionSyntax Accept(ExpressionSyntax expressionNode) => Parenthesized(VisitExpression(expressionNode));
 
+        // A branch that needs statements of its own, such as a call with an out argument, runs them only when it is
+        // taken: the conditional is then an if. The temporary is taken before the branches, whose own are given back.
         var condition = Parenthesized(VisitCondition(node.Condition));
+        var temp = GetTempIdentifier();
+        var ifStatement = new LuaIfStatementSyntax(condition);
+        PushBlock(ifStatement.Body);
         var whenTrue = Accept(node.WhenTrue);
+        PopBlock();
+        var elseClause = new LuaElseClauseSyntax();
+        PushBlock(elseClause.Body);
         var whenFalse = Accept(node.WhenFalse);
-        return condition.And(whenTrue).Or(whenFalse);
+        PopBlock();
+        if (ifStatement.Body.Statements.Count == 0 && elseClause.Body.Statements.Count == 0) {
+          PopTempCount(1);
+          return condition.And(whenTrue).Or(whenFalse);
+        }
+
+        ifStatement.Body.AddStatement(temp.Assignment(whenTrue));
+        elseClause.Body.AddStatement(temp.Assignment(whenFalse));
+        ifStatement.Else = elseClause;
+        CurBlock.AddStatement(new LuaLocalVariableDeclaratorSyntax(temp));
+        CurBlock.AddStatement(ifStatement);
+        return temp;
       }
     }
 

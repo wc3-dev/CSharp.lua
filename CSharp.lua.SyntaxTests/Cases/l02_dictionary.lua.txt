@@ -17,15 +17,14 @@ dup
 # T8
 xFalse
 # T9
-#! T9 attempt to index a nil value (field 'CollectionExtensions')
-T9 EXC
+2 4
 # T10
 1 6
-
+1
 # T11
 328350 100
 # T12
-2 
+2 b
 2
 # T13
 ab
@@ -34,8 +33,7 @@ tf
 # T15
 1 False
 # T16
-#! T16 attempt to index a nil value (field 'StringComparer')
-T16 EXC
+1
 # T17
 a!
 # T18

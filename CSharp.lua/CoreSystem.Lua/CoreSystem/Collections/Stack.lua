@@ -17,17 +17,46 @@ limitations under the License.
 local System = System
 local Array = System.Array
 
+local function tryPop(this)
+  if #this == 0 then
+    return false, this.__genericT__:default()
+  end
+  return true, this:Pop()
+end
+
+local function tryPeek(this)
+  if #this == 0 then
+    return false, this.__genericT__:default()
+  end
+  return true, this:Peek()
+end
+
+-- In the order Pop gives them, the top first.
+local function copyTo(this, array, index)
+  local count = #this
+  System.checkIndexAndCount(array, index, count)
+  local default = this.__genericT__:default()
+  local isStruct = type(default) == "table"
+  for i = 1, count do
+    local v = this[count + 1 - i]
+    array[index + i] = isStruct and v:__clone__() or v
+  end
+end
+
 local Stack = {
   __ctor__ = Array.ctorList,
   getCount = Array.getLength,
   Clear = Array.clear,
   Contains = Array.Contains,
+  CopyTo = copyTo,
   GetEnumerator = Array.reverseEnumerator,
   Push = Array.add,
   Peek = Array.last,
   Pop = Array.popLast,
   ToArray = Array.toArray,
-  TrimExcess = System.emptyFn
+  TrimExcess = System.emptyFn,
+  TryPeek = tryPeek,
+  TryPop = tryPop
 }
 
 function System.stackFromTable(t, T)

@@ -92,6 +92,29 @@ local Span = {
     local ctor = System.Span(this.__genericT__)
     return ctor(this._array, newMin, newMax - newMin + 1)
   end,
+  ToArray = function (this)
+    local T, t = this.__genericT__, {}
+    for i = this._min, this._max do
+      local v = this._array:get(i)
+      if T.class == "S" and type(v) == "table" then
+        v = v:__clone__()
+      end
+      t[#t + 1] = v == nil and System.null or v
+    end
+    return System.arrayFromTable(t, T)
+  end,
+  Fill = function (this, value)
+    local isStruct = this.__genericT__.class == "S" and type(value) == "table"
+    for i = this._min, this._max do
+      this._array:set(i, isStruct and value:__clone__() or value)
+    end
+  end,
+  Clear = function (this)
+    local T = this.__genericT__
+    for i = this._min, this._max do
+      this._array:set(i, T:default())
+    end
+  end,
   ctorArray = function (array)
     local ctor = System.Span(array.__genericT__)
     return ctor(array)    

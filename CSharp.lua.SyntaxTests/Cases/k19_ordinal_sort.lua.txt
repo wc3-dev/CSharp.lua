@@ -1,2 +1,2 @@
 A,B,a,b
-LUA ERROR attempt to index a nil value (field 'StringComparer')
+A,B,a,b

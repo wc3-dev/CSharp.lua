@@ -12,25 +12,21 @@ True False True True 1 3 2 0 3 2 0
 ioe
 2 3
 # T7
-#! T7 attempt to call a nil value (field 'TakeLast')
-T7 EXC
+3,4,5 1,2 3,4,5 1,2 4,5 1,2,3
 # T8
 x:2:ac y:2:bd 
 # T9
 1,2,3 1,2,3,9 2,3 1,3
 # T10
-#! T10 Value cannot be null. (Parameter 'resultSelector')
-T10 EXC
+1x,2y 1,2,3 0,1,2,9
 # T11
 0,2,6 1,1,2,2,3,3
 # T12
-#! T12 attempt to call a nil value (field 'Empty')
-T12 EXC
+1,2,3,4,5 7,7,7 0
 # T13
 6 16 123
 # T14
-#! T14 attempt to call a nil value (field 'ToHashSet')
-T14 EXC
+40 4 2 2
 # T15
 40 20 c b 110 27.5
 # T16
@@ -54,8 +50,7 @@ apple 5 bob,cat,apple
 4 2
 3
 # T24
-#! T24 attempt to call a nil value (field 'Chunk')
-T24 EXC
+3,1 True 1,3
 # T25
 2 2 2 2 3
 # T26
