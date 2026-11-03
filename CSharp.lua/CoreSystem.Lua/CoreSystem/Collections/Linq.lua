@@ -192,10 +192,11 @@ function Enumerable.Take(source, count)
   if source == nil then throw(ArgumentNullException("source")) end
   local T = source.__genericT__
   return createEnumerable(T, function()
+    local left = count
     return createEnumerator(T, source, function(en)
-      if count > 0 then
+      if left > 0 then
         if en:MoveNext() then
-          count = count - 1
+          left = left - 1
           return true, en:getCurrent()
         end
       end
@@ -228,9 +229,10 @@ function Enumerable.Skip(source, count)
   if source == nil then throw(ArgumentNullException("source")) end
   local T = source.__genericT__
   return createEnumerable(T, function()
+    local left = count
     return createEnumerator(T, source, function(en)
-      while count > 0 and en:MoveNext() do count = count - 1 end
-      if count <= 0 then
+      while left > 0 and en:MoveNext() do left = left - 1 end
+      if left <= 0 then
         if en:MoveNext() then
           return true, en:getCurrent()
         end
@@ -317,7 +319,7 @@ local Lookup = {
     if grouping ~= nil then return grouping end
     return Empty(this.__genericTElement__)
   end,
-  GetCount = function (this)
+  getCount = function (this)
     return #this
   end,
   Contains = function (this, key)
@@ -636,6 +638,30 @@ function Enumerable.Zip(first, second, resultSelector, TResult)
   end)
 end
 
+function Enumerable.ZipTuple(first, second, TFirst, TSecond)
+  local TTuple = System.ValueTuple(TFirst, TSecond)
+  return Enumerable.Zip(first, second, function (a, b) return TTuple(a, b) end, TTuple)
+end
+
+function Enumerable.ZipTuple3(first, second, third, TFirst, TSecond, TThird)
+  if first == nil then throw(ArgumentNullException("first")) end
+  if second == nil then throw(ArgumentNullException("second")) end
+  if third == nil then throw(ArgumentNullException("third")) end
+  local TTuple = System.ValueTuple(TFirst, TSecond, TThird)
+  return createEnumerable(TTuple, function()
+    local e2, e3
+    return createEnumerator(TTuple, first, function(e1)
+      if e1:MoveNext() and e2:MoveNext() and e3:MoveNext() then
+        return true, TTuple(e1:getCurrent(), e2:getCurrent(), e3:getCurrent())
+      end
+      return false
+    end,
+    function()
+      e2, e3 = second:GetEnumerator(), third:GetEnumerator()
+    end)
+  end)
+end
+
 function Enumerable.Distinct(source, comparer)
   if source == nil then throw(ArgumentNullException("source")) end
   local T = source.__genericT__
@@ -828,11 +854,12 @@ function Enumerable.ToLookup(source, ...)
   end
 end
 
-function Enumerable.DefaultIfEmpty(source)
+function Enumerable.DefaultIfEmpty(source, ...)
   if source == nil then throw(ArgumentNullException("source")) end
   local T = source.__genericT__
-  local state
+  local hasValue, defaultValue = select("#", ...) > 0, ...
   return createEnumerable(T, function()
+    local state
     return createEnumerator(T, source, function(en)
       if not state then
         if en:MoveNext() then
@@ -840,6 +867,9 @@ function Enumerable.DefaultIfEmpty(source)
           return true, en:getCurrent()
         end
         state = 2
+        if hasValue then
+          return true, defaultValue
+        end
         return true, T:default()
       elseif state == 1 then
         if en:MoveNext() then
@@ -849,6 +879,296 @@ function Enumerable.DefaultIfEmpty(source)
       return false
     end)
   end)
+end
+
+-- The arguments after the ones every overload has: an optional comparer, then n type arguments.
+local function withComparer(n, ...)
+  if select("#", ...) > n then
+    return ...
+  end
+  return nil, ...
+end
+
+function Enumerable.Append(source, element, T)
+  if source == nil then throw(ArgumentNullException("source")) end
+  return createEnumerable(T, function()
+    local appended
+    return createEnumerator(T, source, function(en)
+      if en:MoveNext() then
+        return true, en:getCurrent()
+      end
+      if not appended then
+        appended = true
+        return true, element
+      end
+      return false
+    end)
+  end)
+end
+
+function Enumerable.Prepend(source, element, T)
+  if source == nil then throw(ArgumentNullException("source")) end
+  return createEnumerable(T, function()
+    local prepended
+    return createEnumerator(T, source, function(en)
+      if not prepended then
+        prepended = true
+        return true, element
+      end
+      if en:MoveNext() then
+        return true, en:getCurrent()
+      end
+      return false
+    end)
+  end)
+end
+
+-- The items from the first to the last of source, which first and last work out from its count.
+local function slice(T, source, first, last)
+  return createEnumerable(T, function()
+    local items, i, to
+    return createEnumerator(T, nil, function()
+      if items == nil then
+        local count = 0
+        items = {}
+        for _, v in each(source) do
+          count = count + 1
+          items[count] = v
+        end
+        i, to = first(count) - 1, last(count)
+      end
+      i = i + 1
+      if i <= to then
+        return true, items[i]
+      end
+      return false
+    end)
+  end)
+end
+
+function Enumerable.SkipLast(source, count, T)
+  if source == nil then throw(ArgumentNullException("source")) end
+  return slice(T, source, function () return 1 end, function (n) return n - count end)
+end
+
+function Enumerable.TakeLast(source, count, T)
+  if source == nil then throw(ArgumentNullException("source")) end
+  return slice(T, source, function (n) return n - (count > 0 and count or 0) + 1 end, function (n) return n end)
+end
+
+function Enumerable.Chunk(source, size, T)
+  if source == nil then throw(ArgumentNullException("source")) end
+  if size < 1 then throw(ArgumentOutOfRangeException("size")) end
+  local ArrayT = System.Array(T)
+  return createEnumerable(ArrayT, function()
+    return createEnumerator(ArrayT, source, function(en)
+      local chunk, count = {}, 0
+      while count < size and en:MoveNext() do
+        local v = en:getCurrent()
+        count = count + 1
+        chunk[count] = v == nil and null or v
+      end
+      if count > 0 then
+        return true, System.arrayFromTable(chunk, T)
+      end
+      return false
+    end)
+  end)
+end
+
+function Enumerable.ToHashSet(source, ...)
+  if source == nil then throw(ArgumentNullException("source")) end
+  local comparer, T = withComparer(1, ...)
+  return System.HashSet(T)(source, comparer)
+end
+
+function Enumerable.Empty(T)
+  return Empty(T)
+end
+
+local function addKey(set, key)
+  return set:Add(key)
+end
+
+local function removeKey(set, key)
+  return set:Remove(key)
+end
+
+-- The items of source whose key take(set, key) says yes to, with a set of keys made each time the items are read.
+local function byKey(source, keySelector, newSet, take, T)
+  return createEnumerable(T, function()
+    local set = newSet()
+    return createEnumerator(T, source, function(en)
+      while en:MoveNext() do
+        local current = en:getCurrent()
+        if take(set, keySelector(current)) then
+          return true, current
+        end
+      end
+      return false
+    end)
+  end)
+end
+
+local function keySet(comparer, TKey, keys)
+  local set = System.HashSet(TKey)(comparer)
+  if keys ~= nil then
+    for _, key in each(keys) do
+      set:Add(key)
+    end
+  end
+  return set
+end
+
+function Enumerable.DistinctBy(source, keySelector, ...)
+  if source == nil then throw(ArgumentNullException("source")) end
+  if keySelector == nil then throw(ArgumentNullException("keySelector")) end
+  local comparer, TSource, TKey = withComparer(2, ...)
+  return byKey(source, keySelector, function () return keySet(comparer, TKey) end, addKey, TSource)
+end
+
+function Enumerable.ExceptBy(first, second, keySelector, ...)
+  if first == nil then throw(ArgumentNullException("first")) end
+  if second == nil then throw(ArgumentNullException("second")) end
+  if keySelector == nil then throw(ArgumentNullException("keySelector")) end
+  local comparer, TSource, TKey = withComparer(2, ...)
+  return byKey(first, keySelector, function () return keySet(comparer, TKey, second) end, addKey, TSource)
+end
+
+function Enumerable.IntersectBy(first, second, keySelector, ...)
+  if first == nil then throw(ArgumentNullException("first")) end
+  if second == nil then throw(ArgumentNullException("second")) end
+  if keySelector == nil then throw(ArgumentNullException("keySelector")) end
+  local comparer, TSource, TKey = withComparer(2, ...)
+  return byKey(first, keySelector, function () return keySet(comparer, TKey, second) end, removeKey, TSource)
+end
+
+function Enumerable.UnionBy(first, second, keySelector, ...)
+  if first == nil then throw(ArgumentNullException("first")) end
+  if second == nil then throw(ArgumentNullException("second")) end
+  if keySelector == nil then throw(ArgumentNullException("keySelector")) end
+  local comparer, TSource, TKey = withComparer(2, ...)
+  return byKey(Enumerable.Concat(first, second), keySelector, function () return keySet(comparer, TKey) end, addKey, TSource)
+end
+
+-- seed is a value, or a function of the key that gives one; the pairs come in the order their keys were first seen.
+function Enumerable.AggregateBy(source, keySelector, seed, func, comparer, TSource, TKey, TAccumulate)
+  if source == nil then throw(ArgumentNullException("source")) end
+  if keySelector == nil then throw(ArgumentNullException("keySelector")) end
+  if func == nil then throw(ArgumentNullException("func")) end
+  local T = System.KeyValuePair(TKey, TAccumulate)
+  return createEnumerable(T, function()
+    local keys, values, count, i
+    return createEnumerator(T, nil, function()
+      if keys == nil then
+        keys, values, count, i = {}, {}, 0, 0
+        local indexes = System.Dictionary(TKey, Int32)(comparer)
+        for _, item in each(source) do
+          local key = keySelector(item)
+          local found, index = indexes:TryGetValue(key)
+          if not found then
+            count = count + 1
+            index = count
+            indexes:set(key, index)
+            keys[index] = key
+            if type(seed) == "function" then
+              values[index] = seed(key)
+            else
+              values[index] = seed
+            end
+          end
+          values[index] = func(values[index], item)
+        end
+      end
+      i = i + 1
+      if i <= count then
+        return true, setmetatable({ keys[i], values[i] }, T)
+      end
+      return false
+    end)
+  end)
+end
+
+function Enumerable.CountBy(source, keySelector, comparer, TSource, TKey)
+  return Enumerable.AggregateBy(source, keySelector, 0, function (n) return n + 1 end, comparer, TSource, TKey, Int32)
+end
+
+function Enumerable.Index(source, T)
+  if source == nil then throw(ArgumentNullException("source")) end
+  local TTuple = System.ValueTuple(Int32, T)
+  return createEnumerable(TTuple, function()
+    local index = -1
+    return createEnumerator(TTuple, source, function(en)
+      if en:MoveNext() then
+        index = index + 1
+        return true, TTuple(index, en:getCurrent())
+      end
+      return false
+    end)
+  end)
+end
+
+function Enumerable.LongCount(source, ...)
+  if select("#", ...) == 2 then
+    return Enumerable.Count(source, (...))
+  end
+  return Enumerable.Count(source)
+end
+
+-- A collection knows its count; a query would have to be run for it.
+function Enumerable.TryGetNonEnumeratedCount(source)
+  if source == nil then throw(ArgumentNullException("source")) end
+  if isArrayLike(source) then
+    return true, #source
+  end
+  local getCount = type(source) == "table" and source.getCount
+  if getCount then
+    return true, getCount(source)
+  end
+  return false, 0
+end
+
+-- Each item of outer with each item of inner of the same key, or with inner's default when there is none.
+local function leftJoin(outer, inner, outerKeySelector, innerKeySelector, resultSelector, comparer, TInner, TKey, TResult)
+  if outer == nil then throw(ArgumentNullException("outer")) end
+  if inner == nil then throw(ArgumentNullException("inner")) end
+  if outerKeySelector == nil then throw(ArgumentNullException("outerKeySelector")) end
+  if innerKeySelector == nil then throw(ArgumentNullException("innerKeySelector")) end
+  if resultSelector == nil then throw(ArgumentNullException("resultSelector")) end
+  return createEnumerable(TResult, function ()
+    local lookup = createLookupForJoin(inner, innerKeySelector, comparer, TKey, TInner)
+    local item, grouping, index
+    return createEnumerator(TResult, outer, function (en)
+      while true do
+        if grouping ~= nil then
+          index = index + 1
+          if index < #grouping then
+            return true, resultSelector(item, unWrap(grouping[index + 1]))
+          end
+          grouping = nil
+        end
+        if not en:MoveNext() then return false end
+        item = en:getCurrent()
+        grouping = getGrouping(lookup, outerKeySelector(item))
+        index = -1
+        if grouping == nil then
+          return true, resultSelector(item, TInner:default())
+        end
+      end
+    end)
+  end)
+end
+
+function Enumerable.LeftJoin(outer, inner, outerKeySelector, innerKeySelector, resultSelector, ...)
+  local comparer, _, TInner, TKey, TResult = withComparer(4, ...)
+  return leftJoin(outer, inner, outerKeySelector, innerKeySelector, resultSelector, comparer, TInner, TKey, TResult)
+end
+
+-- A left join from inner's side, in inner's order.
+function Enumerable.RightJoin(outer, inner, outerKeySelector, innerKeySelector, resultSelector, ...)
+  local comparer, TOuter, _, TKey, TResult = withComparer(4, ...)
+  if resultSelector == nil then throw(ArgumentNullException("resultSelector")) end
+  return leftJoin(inner, outer, innerKeySelector, outerKeySelector, function (i, o) return resultSelector(o, i) end, comparer, TOuter, TKey, TResult)
 end
 
 function Enumerable.OfType(source, T)

@@ -36,8 +36,7 @@ ioor2
 abc
 cba
 # T15
-#! T15 attempt to compare table with number
-T15 EXC
+abc
 # T16
 True
 4

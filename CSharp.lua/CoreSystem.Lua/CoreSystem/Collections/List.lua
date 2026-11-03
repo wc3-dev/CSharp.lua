@@ -35,6 +35,7 @@ local List = {
   BinarySearch = Array.BinarySearch,
   Clear = Array.clear,
   Contains = Array.Contains,
+  ConvertAll = Array.convertAll,
   CopyTo = Array.CopyTo,
   Exists = Array.Exists,
   Find = Array.Find,
