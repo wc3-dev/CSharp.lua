@@ -2121,7 +2121,11 @@ namespace CSharpLua {
         case RecursivePatternSyntax recursivePattern: {
           AddSubpatternVariable(target, recursivePattern.Designation, pattern);
           LuaLocalVariablesSyntax deconstruct = null;
-          return BuildRecursivePatternExpression(recursivePattern, target, ref deconstruct, null);
+          var condition = BuildRecursivePatternExpression(recursivePattern, target, ref deconstruct, null);
+          if (deconstruct != null) {
+            AddSwitchDeconstruct(deconstruct);
+          }
+          return condition;
         }
         default: {
           throw new CompilationErrorException(pattern, $"the pattern '{pattern}' inside a property or positional pattern is not supported");
@@ -2152,13 +2156,18 @@ namespace CSharpLua {
       var local = GetTempIdentifier();
       AddLocalVariableMapping(local, single);
       CurBlock.AddStatement(new LuaLocalVariableDeclaratorSyntax(local));
-      LuaStatementSyntax read = local.Assignment(target);
-      if (patternChecks_.Count > 0) {
-        var ifStatement = new LuaIfStatementSyntax(patternChecks_.Aggregate((x, y) => x.And(y)));
-        ifStatement.Body.AddStatement(read);
-        read = ifStatement;
+      AddBehindPatternChecks(local.Assignment(target));
+    }
+
+    // A read before a pattern's condition, run only when the checks the pattern makes on the way to it hold.
+    private void AddBehindPatternChecks(LuaExpressionSyntax assignment) {
+      if (patternChecks_.Count == 0) {
+        CurBlock.AddStatement(assignment);
+        return;
       }
-      CurBlock.AddStatement(read);
+      var ifStatement = new LuaIfStatementSyntax(patternChecks_.Aggregate((x, y) => x.And(y)));
+      ifStatement.Body.AddStatement(assignment);
+      CurBlock.AddStatement(ifStatement);
     }
 
     private static bool IsInLoopCondition(SyntaxNode node) {
