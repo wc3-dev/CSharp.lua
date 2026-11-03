@@ -404,7 +404,7 @@ limitations under the License.
         <property name="End" IsField="true" />
         <property name="Start" IsField="true" />
         <property name="Value">
-          <get Template="{this}" />
+          <get Template="System.Index.getValue({this})" />
         </property>
         <property name="IsFromEnd">
           <get Template="System.Index.IsFromEnd({this})" />

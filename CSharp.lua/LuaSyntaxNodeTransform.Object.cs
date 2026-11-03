@@ -1234,6 +1234,13 @@ namespace CSharpLua {
       if (symbol != null) {
         var arguments = BuildArgumentList(symbol, symbol.Parameters, node.ArgumentList);
         propertyAdapter.ArgumentList.AddArguments(arguments);
+        // An index from the end on an indexer of an int (a string's, a List's) is the count less it, as on an array.
+        if (node.ArgumentList.Arguments.Count == 1 && symbol.Parameters.Length == 1 && symbol.Parameters[0].Type.SpecialType == SpecialType.System_Int32) {
+          var arg = node.ArgumentList.Arguments.First().Expression;
+          if (semanticModel_.GetTypeInfo(arg).Type.IsSystemIndex()) {
+            UpdateIndexArgumentExpression(node.Expression, propertyAdapter, arg.IsKind(SyntaxKind.IndexExpression));
+          }
+        }
       } else {
         var argumentList = node.ArgumentList.Accept<LuaArgumentListSyntax>(this);
         propertyAdapter.ArgumentList.Arguments.AddRange(argumentList.Arguments);
@@ -1267,6 +1274,13 @@ namespace CSharpLua {
 
     public override LuaSyntaxNode VisitElementAccessExpression(ElementAccessExpressionSyntax node) {
       var symbol = semanticModel_.GetSymbolInfo(node).Symbol;
+      // source[range] of an array, or of a type C# reads with its Substring or Slice: the core slices it.
+      if (symbol is null or { Kind: SymbolKind.Method } && node.ArgumentList.Arguments.Count == 1
+        && semanticModel_.GetTypeInfo(node.ArgumentList.Arguments[0].Expression).Type is { Name: "Range", ContainingNamespace.Name: "System" }) {
+        var source = node.Expression.AcceptExpression(this);
+        var range = node.ArgumentList.Arguments[0].Expression.AcceptExpression(this);
+        return LuaIdentifierNameSyntax.Range.MemberAccess("slice").Invocation(source, range);
+      }
       LuaExpressionSyntax expression;
       if (symbol?.Kind == SymbolKind.Method) {
         var typeSymbol = semanticModel_.GetTypeInfo(node.Expression).Type;
@@ -1979,10 +1993,12 @@ namespace CSharpLua {
 
         var slicePattern = (SlicePatternSyntax)patterns[sliceIndex];
         if (slicePattern.Pattern != null && !slicePattern.Pattern.IsKind(SyntaxKind.DiscardPattern)) {
+          // The core's slice, as source[start..^tailCount] is: a string's text, an array's elements or a List's Slice.
           int start = sliceIndex;
           int tailCount = patterns.Count - 1 - sliceIndex;
-          LuaExpressionSyntax lengthArg = countExpr.Binary(LuaSyntaxNode.Tokens.Sub, new LuaIdentifierLiteralExpressionSyntax((start + tailCount).ToString()));
-          var sliceInvoke = new LuaInvocationExpressionSyntax(target.MemberAccess("Slice", true), new LuaIdentifierLiteralExpressionSyntax(start.ToString()), lengthArg);
+          var end = new LuaIdentifierLiteralExpressionSyntax(tailCount == 0 ? "-0.0" : (-tailCount).ToString());
+          var range = LuaIdentifierNameSyntax.Range.Invocation(new LuaIdentifierLiteralExpressionSyntax(start.ToString()), end);
+          var sliceInvoke = LuaIdentifierNameSyntax.Range.MemberAccess("slice").Invocation(target, range);
           if (slicePattern.Pattern is VarPatternSyntax varPattern) {
             if (!varPattern.Designation.IsKind(SyntaxKind.DiscardDesignation)) {
               AddLocalVariableMapping(new LuaSymbolNameSyntax(sliceInvoke), varPattern.Designation);
