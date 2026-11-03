@@ -84,5 +84,19 @@ Array.Fill(points, new P { X = 8 });
 points[1].X = 9;
 Console.WriteLine(points[0].X + "" "" + points[1].X + "" "" + copies[1].X + "" "" + span[1].X);", "struct P { public int X; }\n");
     }
+
+    [TestMethod]
+    public void TestAsSpanFromAStart() {
+      SameAsNet.Prints(@"
+var items = new[] { 1, 2, 3, 4 };
+var rest = items.AsSpan(1);
+Console.WriteLine(rest.Length + "" "" + rest[0] + "" "" + string.Join("","", rest.ToArray()));
+rest.Slice(1).Fill(9);
+items.AsSpan(3).Clear();
+Console.WriteLine(string.Join("","", items));
+var text = ""hello"".AsSpan(1);
+Console.WriteLine(text.Length + "" "" + text.ToString() + "" "" + ""hello"".AsSpan(1, 2).ToString() + "" "" + ""hello"".AsSpan().Length);
+Console.WriteLine(string.Join("","", items.AsSpan(^2).ToArray()) + "" "" + string.Join("","", items.AsSpan(1..3).ToArray()) + "" "" + ""hello"".AsSpan(1..3).ToString() + "" "" + ""hello"".AsSpan(^1).ToString());");
+    }
   }
 }
