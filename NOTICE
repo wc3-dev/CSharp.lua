@@ -58,6 +58,7 @@ CSharp.lua/CoreSystem.Lua/CoreSystem/Math.lua
 CSharp.lua/CoreSystem.Lua/CoreSystem/MemoryExtensions.lua
 CSharp.lua/CoreSystem.Lua/CoreSystem/Natives.lua
 CSharp.lua/CoreSystem.Lua/CoreSystem/Number.lua
+CSharp.lua/CoreSystem.Lua/CoreSystem/Numerics/HashCodeHelper.lua
 CSharp.lua/CoreSystem.Lua/CoreSystem/ReadOnlySpan.lua
 CSharp.lua/CoreSystem.Lua/CoreSystem/Span.lua
 CSharp.lua/CoreSystem.Lua/CoreSystem/String.lua
