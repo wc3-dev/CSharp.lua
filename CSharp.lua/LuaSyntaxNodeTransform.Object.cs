@@ -2185,7 +2185,7 @@ namespace CSharpLua {
             return new LuaSequenceListExpressionSyntax(expressions);
           }
 
-          if (assignment.Right.IsKind(SyntaxKind.TupleExpression) && assignment.Left.IsKind(SyntaxKind.TupleExpression)) {
+          if (assignment.Right.IsKind(SyntaxKind.TupleExpression) && assignment.Left.Kind().IsTupleDeclaration()) {
             return new LuaSequenceListExpressionSyntax(expressions);
           }
           break;

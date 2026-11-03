@@ -1798,6 +1798,16 @@ namespace CSharpLua {
         return propertyAdapter;
       }
 
+      // Lua assigns several values at once only to names and fields: with an element, a property or a template among the
+      // targets of a tuple, the values are kept in locals first, then each target is set.
+      if (left is LuaSequenceListExpressionSyntax targets && targets.Expressions.Any(i => i is LuaPropertyAdapterExpressionSyntax or LuaPropertyTemplateExpressionSyntax)) {
+        var values = targets.Expressions.Select(_ => GetTempIdentifier()).ToList();
+        CurBlock.AddStatement(new LuaLocalVariablesSyntax(values, new[] { right }));
+        var assignments = new LuaLineMultipleExpressionSyntax();
+        assignments.Assignments.AddRange(targets.Expressions.Select((target, i) => BuildLuaSimpleAssignmentExpression(target, values[i])));
+        return assignments;
+      }
+
       return left.Assignment(right);
     }
 

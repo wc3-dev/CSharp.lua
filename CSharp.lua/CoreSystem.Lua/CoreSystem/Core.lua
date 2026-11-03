@@ -1363,7 +1363,10 @@ local function tupleCompareToObj(t, obj)
   return tupleCompareTo(t, obj)
 end
 
+-- Each item as the rest of the core writes values as text, which needs no methods on numbers or booleans; a char is a
+-- number, written as its character by the item's type.
 local function tupleToString(t)
+  local types = getmetatable(t).__genericT__
   local a = { "(" }
   local count = 2
   for i = 1, t.n do
@@ -1373,7 +1376,11 @@ local function tupleToString(t)
     end
     local v = t[i]
     if v ~= nil then
-      a[count] = v:ToString()
+      if types and types[i] == System.Char then
+        a[count] = string.char(v)
+      else
+        a[count] = toString(v)
+      end
       count = count + 1
     end
   end
