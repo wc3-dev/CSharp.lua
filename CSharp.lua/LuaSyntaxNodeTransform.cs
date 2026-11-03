@@ -3142,8 +3142,10 @@ namespace CSharpLua {
       return symbol.IsStatic ? GetTypeName(symbol.ContainingType) : LuaIdentifierNameSyntax.This;
     }
 
+    // Inside its class an auto-property is read as its field, but only when nothing can override it: an abstract property
+    // has no field, and an override of a virtual one would never be asked.
     private bool IsPropertyField(IdentifierNameSyntax node, IPropertySymbol propertySymbol) {
-      return IsPropertyField(propertySymbol) || (IsInternalNode(node) && generator_.IsAutoProperty(propertySymbol));
+      return IsPropertyField(propertySymbol) || (IsInternalNode(node) && !propertySymbol.IsOverridable() && generator_.IsAutoProperty(propertySymbol));
     }
 
     private LuaExpressionSyntax VisitPropertyOrEventIdentifierName(IdentifierNameSyntax node, ISymbol symbol, bool isProperty, out bool isField) {
@@ -4029,7 +4031,7 @@ namespace CSharpLua {
         switchStatement.Temp = temp;
         switchStatement.Body.Statements.Add(new LuaLocalVariableDeclaratorSyntax(temp, expression));
       }
-      MoveSwitchLocalFunctions(node, switchStatement.Body);
+      MoveSwitchLocals(node, switchStatement.Body, MoveSwitchLocalFunctions(node, switchStatement.Body));
       switchStatement.Fill(node.Sections.Select(i => i.Accept<LuaStatementSyntax>(this)));
       PopBlock();
       switches_.Pop();
