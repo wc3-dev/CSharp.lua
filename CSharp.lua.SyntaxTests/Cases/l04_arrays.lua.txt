@@ -1,4 +1,3 @@
-whole file: NO LOAD syntax error near ','
 # T1
 3 05 0,5,0
 # T2
@@ -57,7 +56,7 @@ True 1 3 3 1 2 3
 # T22
 2,3,4 3
 # T23
-NO LOAD syntax error near ','
+35
 # T24
 0
 0 0
