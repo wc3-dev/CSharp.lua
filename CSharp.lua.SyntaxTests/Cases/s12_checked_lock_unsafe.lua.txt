@@ -2,7 +2,7 @@ whole file: REFUSED Case.cs(10,22): error CS0227: Unsafe code may only appear if
 # T1
 locked
 # T2
-2147483648
+overflow
 # T3
 2147483648
 # T4
