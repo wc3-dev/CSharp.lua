@@ -23,6 +23,7 @@ namespace CSharpLua.LuaAst {
     public string CloseToken { get; set; }
     public readonly LuaSyntaxList<LuaStatementSyntax> Statements = new();
     private LuaLocalAreaSyntax headVariables_;
+    private int headValueCount_;
     public int TempCount;
     public int ReleaseCount;
     public List<int> UsingDeclarations;
@@ -38,6 +39,12 @@ namespace CSharpLua.LuaAst {
         Statements.Insert(0, headVariables_);
       }
       headVariables_.Variables.Add(name);
+    }
+
+    // One with a value is declared on its own line, below the ones without.
+    internal void AddHeadVariable(LuaIdentifierNameSyntax name, LuaExpressionSyntax value) {
+      int index = headVariables_ == null ? 0 : Statements.IndexOf(headVariables_) + 1;
+      Statements.Insert(index + headValueCount_++, new LuaLocalVariableDeclaratorSyntax(name, value));
     }
 
     internal void AddStatement(LuaStatementSyntax statement) {
