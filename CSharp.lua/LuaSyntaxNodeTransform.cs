@@ -541,10 +541,14 @@ namespace CSharpLua {
     }
 
     private void BuildRecordMembers(INamedTypeSymbol typeSymbol, LuaTypeDeclarationSyntax typeDeclaration) {
-      int skipCount = typeSymbol.IsReferenceType ? 1 : 0;
-      var properties = typeSymbol.GetMembers().OfType<IPropertySymbol>().Skip(skipCount);
+      // A record deriving from a record lists its base's members first, as C#'s PrintMembers writes them.
+      var records = new List<INamedTypeSymbol>();
+      for (var type = typeSymbol; type is { IsRecord: true } && generator_.IsFromCode(type); type = type.BaseType) {
+        records.Insert(0, type);
+      }
+      var properties = records.SelectMany(record => record.GetMembers().OfType<IPropertySymbol>().Skip(record.IsReferenceType ? 1 : 0));
       var expressions = new List<LuaExpressionSyntax> { typeSymbol.Name.ToStringLiteral() };
-      expressions.AddRange(properties.Select(i => GetMemberName(i).ToStringLiteral()));
+      expressions.AddRange(properties.GroupBy(i => i.Name).Select(i => GetMemberName(i.First()).ToStringLiteral()));
       var function = new LuaFunctionExpressionSyntax();
       function.AddStatement(new LuaReturnStatementSyntax(expressions));
       typeDeclaration.AddMethod(LuaIdentifierNameSyntax.RecordMembers, function, false);

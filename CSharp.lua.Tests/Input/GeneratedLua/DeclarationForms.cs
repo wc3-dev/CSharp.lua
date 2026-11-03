@@ -60,6 +60,7 @@ class Program {
       return h.Field.Value + " " + h.Prop.Value + " " + items[0].Value;
     });
     Show("DerivedRecord", () => (new Derived(1, "q") == new Derived(1, "q")) + " " + (new Derived(1, "q") != new Derived(1, "r")) + " " + (new Third(1, "q", true) == new Third(1, "q", true)));
+    Show("DerivedText", () => new Third(1, "q", true) + " " + new Derived(1, "q").Equals(new Base(1)) + " " + new Derived(1, "q").Equals(new Derived(1, "q")));
     Show("AnonymousWith", () => {
       var a = new { X = 1, Y = "a" };
       var b = a with { X = 2 };

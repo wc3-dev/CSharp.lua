@@ -1449,8 +1449,9 @@ end, ValueTuple, '')
 ValueTuple.__call = tupleCreate
 System.ValueTuple = ValueTupleFn
 
+-- rawequal: == on two records is this function, so it would call itself without end.
 local function recordEquals(t, other)
-  if t == other then return true end
+  if rawequal(t, other) then return true end
   if getmetatable(t) == getmetatable(other) then
     for k, v in pairs(t) do
       if not equalsObj(v, other[k]) then

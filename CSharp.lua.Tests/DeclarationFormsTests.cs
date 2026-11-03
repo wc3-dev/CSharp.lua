@@ -4,9 +4,10 @@ namespace CSharpLua.Tests {
   /// <summary>
   /// Declarations the compiler wrote wrong. A user-defined ++ or -- was written x = x + 1, arithmetic on a table; it now
   /// calls the operator, on a local, a field, a property and an element, before or after. A record deriving from a record
-  /// called its == as op_Equality1, a name nothing has: a record's own == and != are the core's, which every record
-  /// inherits under their plain names. with on an anonymous type called a __clone__ the core's anonymous type did not
-  /// have. The expected lines are what the sample prints on .NET.
+  /// called its == and its Equals(base) as op_Equality1 and Equals1, names nothing has: a record's own Equals, == and !=
+  /// are the core's, which every record inherits under their plain names. Its text left out the base's members, and the
+  /// core's record Equals called itself on two records of different types. with on an anonymous type called a __clone__
+  /// the core's anonymous type did not have. The expected lines are what the sample prints on .NET.
   /// </summary>
   [TestClass]
   public class DeclarationFormsTests {
@@ -19,6 +20,7 @@ namespace CSharpLua.Tests {
         + "StructIncrement: 11\n"
         + "Members: 1 2 1\n"
         + "DerivedRecord: True True True\n"
+        + "DerivedText: Third { A = 1, B = q, C = True } False True\n"
         + "AnonymousWith: 1 2 a\n",
         output);
     }
