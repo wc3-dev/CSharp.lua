@@ -1,1 +1,2 @@
-LUA ERROR attempt to call a nil value (method 'TryPop')
+a
+True 1

@@ -5,8 +5,7 @@
 # T3
 True True True True True
 # T4
-#! T4 attempt to index a nil value (field 'HashCode')
-T4 EXC
+True
 # T5
 nan 0 True
 # T6

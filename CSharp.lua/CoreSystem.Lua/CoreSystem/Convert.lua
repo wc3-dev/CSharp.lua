@@ -612,6 +612,30 @@ local function fromBase64CharArray(inArray, offset, length)
   return fromBase64CharPtr(inArray, offset, length)
 end
 
+local function toHexString(bytes, offset, length, format)
+  if bytes == nil then throw(ArgumentNullException("inArray")) end
+  offset = offset or 0
+  length = length or #bytes - offset
+  checkIndex(bytes, offset, length)
+  local t = {}
+  for i = 1, length do
+    t[i] = (format or "%02X"):format(bytes[offset + i])
+  end
+  return table.concat(t)
+end
+
+local function fromHexString(s)
+  if s == nil then throw(ArgumentNullException("s")) end
+  if #s % 2 ~= 0 or s:find("[^%x]") then
+    throw(FormatException())
+  end
+  local t = {}
+  for i = 1, #s, 2 do
+    t[#t + 1] = tonumber(s:sub(i, i + 1), 16)
+  end
+  return System.arrayFromTable(t, Byte)
+end
+
 define("System.Convert", {
   ToBoolean = toBoolean,
   ToChar = toChar,
@@ -629,6 +653,11 @@ define("System.Convert", {
   ToBase64String = toBase64String,
   FromBase64String = fromBase64String,
   FromBase64CharArray = fromBase64CharArray,
+  ToHexString = toHexString,
+  ToHexStringLower = function (bytes, offset, length)
+    return toHexString(bytes, offset, length, "%02x")
+  end,
+  FromHexString = fromHexString,
   ChangeType = changeType,
   ToString = toString,
   ToStringFromChar = string.char

@@ -610,7 +610,8 @@ local function replace(this, a, b)
   if type(a) == "number" then
     a, b = char(a), char(b)
   end
-  return gsub(this, escape(a), b)
+  -- A % in gsub's replacement names a capture.
+  return (gsub(this, escape(a), (gsub(b or "", "%%", "%%%%"))))
 end
 
 local function findAny(s, strings, startIndex)
@@ -771,6 +772,105 @@ local function inherits(_, T)
   return { System.IEnumerable_1(System.Char), System.IComparable, System.IComparable_1(T), System.IConvertible, System.IEquatable_1(T), System.ICloneable }
 end
 
+-- CR LF, CR, LF, FF, NEL, LS and PS, as .NET reads a line break; the game's is "\n".
+local function replaceLineEndings(this, replacement)
+  local s = gsub(this, "\r\n", "\n")
+  s = gsub(s, "[\r\f]", "\n")
+  s = gsub(s, "\194\133", "\n")
+  s = gsub(s, "\226\128[\168\169]", "\n")
+  if replacement ~= nil and replacement ~= "\n" then
+    s = gsub(s, "\n", (gsub(replacement, "%%", "%%%%")))
+  end
+  return s
+end
+
+local Rune = System.defStc("System.Text.Rune", {
+  value = 0,
+  __ctor__ = function (this, value)
+    this.value = value or 0
+  end,
+  getValue = function (this)
+    return this.value
+  end,
+  getIsAscii = function (this)
+    return this.value < 0x80
+  end,
+  getIsBmp = function (this)
+    return this.value < 0x10000
+  end,
+  getUtf8SequenceLength = function (this)
+    local value = this.value
+    return value < 0x80 and 1 or value < 0x800 and 2 or value < 0x10000 and 3 or 4
+  end,
+  getUtf16SequenceLength = function (this)
+    return this.value < 0x10000 and 1 or 2
+  end,
+  ToString = function (this)
+    return utf8(this.value)
+  end,
+  EqualsObj = function (this, other)
+    return getmetatable(other) == getmetatable(this) and this.value == other.value
+  end,
+  GetHashCode = function (this)
+    return this.value
+  end
+})
+
+-- The code point at i of a UTF-8 text and its length in bytes; a byte that starts no letter is U+FFFD.
+local function decodeRune(s, i)
+  local c = byte(s, i)
+  if c < 0x80 then
+    return c, 1
+  end
+  local n, value
+  if c >= 0xC2 and c <= 0xDF then
+    n, value = 2, c - 0xC0
+  elseif c >= 0xE0 and c <= 0xEF then
+    n, value = 3, c - 0xE0
+  elseif c >= 0xF0 and c <= 0xF4 then
+    n, value = 4, c - 0xF0
+  else
+    return 0xFFFD, 1
+  end
+  for k = 1, n - 1 do
+    local b = byte(s, i + k)
+    if b == nil or b < 0x80 or b > 0xBF then
+      return 0xFFFD, k
+    end
+    value = value * 64 + (b - 0x80)
+  end
+  if (n == 3 and (value < 0x800 or (value >= 0xD800 and value <= 0xDFFF))) or (n == 4 and (value < 0x10000 or value > 0x10FFFF)) then
+    return 0xFFFD, n
+  end
+  return value, n
+end
+
+local StringRuneEnumerator
+StringRuneEnumerator = System.define("System.Text.StringRuneEnumerator", {
+  __genericT__ = Rune,
+  GetEnumerator = function (this)
+    return setmetatable({ text = this.text, index = 1 }, StringRuneEnumerator)
+  end,
+  MoveNext = function (this)
+    local text, index = this.text, this.index
+    if index > #text then
+      return false
+    end
+    local value, n = decodeRune(text, index)
+    this.current = Rune(value)
+    this.index = index + n
+    return true
+  end,
+  getCurrent = function (this)
+    return this.current
+  end,
+  Dispose = emptyFn
+})
+
+local function enumerateRunes(this)
+  return setmetatable({ text = this, index = 1 }, StringRuneEnumerator)
+end
+
 string.traceback = emptyFn  -- make throw(str) not fail
 string.getLength = lengthFn
 string.getCount = lengthFn
@@ -794,18 +894,23 @@ string.CompareToObj = compareToObj
 string.Contains = contains
 string.CopyTo = copyTo
 string.EndsWith = endsWith
+string.EnumerateRunes = enumerateRunes
 string.EqualsObj = equalsObj
 string.GetEnumerator = getEnumerator
 string.GetTypeCode = getTypeCode
 string.IndexOf = indexOf
 string.IndexOfAny = indexOfAny
 string.Insert = insert
+-- A Lua string is the same value wherever it is made.
+string.Intern = System.identityFn
+string.IsInterned = System.identityFn
 string.LastIndexOf = lastIndexOf
 string.LastIndexOfAny = lastIndexOfAny
 string.PadLeft = padLeft
 string.PadRight = padRight
 string.Remove = remove
 string.Replace = replace
+string.ReplaceLineEndings = replaceLineEndings
 string.Split = split
 string.StartsWith = startsWith
 string.Substring = substring

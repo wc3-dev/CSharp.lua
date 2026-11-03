@@ -153,3 +153,49 @@ Comparer = define("System.Comparer_1", function (T)
     Create = Create
   }
 end)
+
+-- Ordinal compares strings by their bytes, OrdinalIgnoreCase by their letters upper-cased, as .NET does.
+local function stringComparer(key)
+  return {
+    Compare = function (this, a, b)
+      if a == b then
+        return 0
+      elseif a == nil then
+        return -1
+      elseif b == nil then
+        return 1
+      end
+      a, b = key(a), key(b)
+      if a == b then
+        return 0
+      end
+      return a < b and -1 or 1
+    end,
+    EqualsOf = function (this, a, b)
+      if a == nil or b == nil then
+        return a == b
+      end
+      return key(a) == key(b)
+    end,
+    GetHashCodeOf = function (this, s)
+      if s == nil then throw(ArgumentNullException("obj")) end
+      return System.hash(key(s))
+    end
+  }
+end
+
+local StringComparer = define("System.StringComparer", {
+  base = function ()
+    return { System.IComparer_1(System.String), System.IEqualityComparer_1(System.String), System.IComparer, System.IEqualityComparer }
+  end
+})
+
+local ordinal = setmetatable(stringComparer(System.identityFn), StringComparer)
+local ordinalIgnoreCase = setmetatable(stringComparer(string.upper), StringComparer)
+
+StringComparer.getOrdinal = function ()
+  return ordinal
+end
+StringComparer.getOrdinalIgnoreCase = function ()
+  return ordinalIgnoreCase
+end

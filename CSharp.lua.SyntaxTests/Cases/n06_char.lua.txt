@@ -3,8 +3,7 @@ b 98 c 99
 # T2
 True True True False True False True
 # T3
-#! T3 attempt to call a nil value (field 'ToUpperInvariant')
-T3 EXC
+A q Z 7 7
 # T4
 xx x True True
 # T5
@@ -21,5 +20,4 @@ is A
 # T10
 olleh
 # T11
-#! T11 attempt to call a nil value (field 'IsAscii')
-T11 EXC
+True True True True True

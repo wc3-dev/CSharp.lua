@@ -475,6 +475,28 @@ local function sort(t, comparer)
   end
 end
 
+-- Sorts keys, and items in the same moves.
+local function sortKeysAndItems(keys, items, index, count, comparer)
+  checkIndexAndCount(keys, index, count)
+  checkIndexAndCount(items, index, count)
+  if count > 1 then
+    local comp = getSortComp(keys, comparer)
+    local order = {}
+    for i = 1, count do
+      order[i] = index + i
+    end
+    tsort(order, function (a, b) return comp(keys[a], keys[b]) end)
+    local sortedKeys, sortedItems = {}, {}
+    for i = 1, count do
+      sortedKeys[i], sortedItems[i] = keys[order[i]], items[order[i]]
+    end
+    tmove(sortedKeys, 1, count, index + 1, keys)
+    tmove(sortedItems, 1, count, index + 1, items)
+    versions[keys] = (versions[keys] or 0) + 1
+    versions[items] = (versions[items] or 0) + 1
+  end
+end
+
 local function addOrder(t, v, comparer)
   local i = binarySearch(t, v, comparer)
   if i >= 0 then return false end
@@ -1331,7 +1353,22 @@ Array = {
   getIsFixedSize = trueFn,
   getRank = System.oneFn,
   Add = unset,
-  Clear = unset,
+  -- A Span made from a whole array is the array, so Span's Clear and ToArray are an array's too.
+  Clear = function (t)
+    local default = t.__genericT__:default()
+    local isStruct = type(default) == "table"
+    for i = 1, #t do
+      t[i] = isStruct and t.__genericT__:default() or (default == nil and null or default)
+    end
+  end,
+  ToArray = function (t)
+    local copy = {}
+    for i = 1, #t do
+      local v = t[i]
+      copy[i] = type(v) == "table" and v ~= null and t.__genericT__.class == "S" and v:__clone__() or v
+    end
+    return arrayFromTable(copy, t.__genericT__)
+  end,
   Insert = unset,
   Remove = unset,
   RemoveAt = unset,
@@ -1384,7 +1421,13 @@ Array = {
         throw(ArgumentOutOfRangeException("count"))
       end
     end
-    fill(t, startIndex + 1, startIndex + count, value)
+    if t.__genericT__.class == "S" and type(value) == "table" then
+      for i = startIndex + 1, startIndex + count do
+        t[i] = value:__clone__()
+      end
+    else
+      fill(t, startIndex + 1, startIndex + count, value == nil and null or value)
+    end
   end,
   Find = function (t, match)
     if t == nil then throw(ArgumentNullException("array")) end
@@ -1516,7 +1559,15 @@ Array = {
   Sort = function (t, ...)
     if t == nil then throw(ArgumentNullException("array")) end
     local len = select("#", ...)
-    if len == 0 then
+    local items = ...
+    if type(items) == "table" and items.GetEnumerator == arrayEnumerator then
+      -- Sort(keys, items), (keys, items, comparer), (keys, items, index, length) and (keys, items, index, length, comparer)
+      if len <= 2 then
+        sortKeysAndItems(t, items, 0, #t, select(2, ...))
+      else
+        sortKeysAndItems(t, items, select(2, ...))
+      end
+    elseif len == 0 then
       sort(t)
     elseif len == 1 then
       local comparer = ...
@@ -1550,6 +1601,28 @@ Array = {
       end
     end
     return arrayFromTable(array, t.__genericT__)
+  end,
+  ConvertAll = function (t, converter, TInput, TOutput)
+    if t == nil then throw(ArgumentNullException("array")) end
+    if converter == nil then throw(ArgumentNullException("converter")) end
+    local array = {}
+    for i = 1, #t do
+      local item = t[i]
+      if item == null then item = nil end
+      local v = converter(item)
+      array[i] = v == nil and null or v
+    end
+    return arrayFromTable(array, TOutput)
+  end,
+  convertAll = function (t, converter, TOutput)
+    if converter == nil then throw(ArgumentNullException("converter")) end
+    local list = System.List(TOutput)()
+    for i = 1, #t do
+      local item = t[i]
+      if item == null then item = nil end
+      list:Add(converter(item))
+    end
+    return list
   end,
   TrueForAll = function (t, match)
     if t == nil then throw(ArgumentNullException("array")) end

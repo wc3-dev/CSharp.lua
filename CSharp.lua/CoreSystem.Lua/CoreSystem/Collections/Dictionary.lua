@@ -132,9 +132,8 @@ local DictionaryEnumerator = define("System.Collections.Generic.DictionaryEnumer
     local k, v = next(t, this.index)
     if k ~= nil then
       if kind then
-        kind[1] = k
         if v == null then v = nil end
-        kind[2] = v
+        this.current = setmetatable({ k, v }, t.__genericT__)
       elseif kind == false then
         if v == null then v = nil end
         this.current = v
@@ -145,7 +144,7 @@ local DictionaryEnumerator = define("System.Collections.Generic.DictionaryEnumer
       return true
     else
       if kind then
-        kind[1], kind[2] = kind.__genericTKey__:default(), kind.__genericTValue__:default()
+        this.current = kind
       elseif kind == false then
         this.current = t.__genericTValue__:default()
       else
@@ -341,7 +340,15 @@ local Dictionary = (function ()
       end
     end,
     RemoveKey = remove,
-    Remove = function (this, key)
+    Remove = function (this, key, ...)
+      -- Remove(key, out value): the out argument is given as nil.
+      if select("#", ...) > 0 then
+        local found, value = this:TryGetValue(key)
+        if found then
+          remove(this, key)
+        end
+        return found, value
+      end
       if isKeyValuePair(key) then
         local k, v = key[1], key[2]
         if k == nil then throw(ArgumentNullException("key")) end
@@ -682,14 +689,23 @@ local ArrayDictionary = (function ()
     RemoveKey = function (this, key)
       return update(this, false, key)
     end,
-    Remove = function (this, pair)
-      if isKeyValuePair(pair) then
-        if this:Contains(pair) then
-          update(this, false, pair[1])
+    Remove = function (this, key, ...)
+      -- Remove(key, out value): the out argument is given as nil.
+      if select("#", ...) > 0 then
+        local found, value = this:TryGetValue(key)
+        if found then
+          update(this, false, key)
+        end
+        return found, value
+      end
+      if isKeyValuePair(key) then
+        if this:Contains(key) then
+          update(this, false, key[1])
           return true
         end
+        return false
       end
-      return false
+      return update(this, false, key)
     end,
     removeWhere = function (this, match)
       local count = 0
@@ -783,3 +799,19 @@ System.ArrayDictionary = ArrayDictionaryFn
 
 local Object = System.Object
 System.Hashtable = DictionaryFn(Object, Object)
+
+System.CollectionExtensions = define("System.Collections.Generic.CollectionExtensions", {
+  -- (dictionary, key, TKey, TValue), or (dictionary, key, defaultValue, TKey, TValue).
+  GetValueOrDefault = function (dictionary, key, ...)
+    if dictionary == nil then throw(ArgumentNullException("dictionary")) end
+    local found, value = dictionary:TryGetValue(key)
+    if found then
+      return value
+    end
+    if select("#", ...) == 3 then
+      return (...)
+    end
+    local _, TValue = ...
+    return TValue:default()
+  end
+})

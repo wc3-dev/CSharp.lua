@@ -53,8 +53,7 @@ b bXc cba
 # T25
 3 2 T b
 # T26
-#! T26 attempt to call a nil value (field 'Intern')
-T26 EXC
+True True True q
 # T27
 6 2
 # T28

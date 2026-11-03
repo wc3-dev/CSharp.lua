@@ -13,8 +13,7 @@ True
 # T6
 True
 # T7
-#! T7 attempt to call a nil value (field 'getNewLine')
-T7 EXC
+True
 # T8
 thread
 #! T8 mainThread not support
