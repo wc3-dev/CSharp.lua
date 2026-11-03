@@ -541,10 +541,14 @@ namespace CSharpLua {
     }
 
     private void BuildRecordMembers(INamedTypeSymbol typeSymbol, LuaTypeDeclarationSyntax typeDeclaration) {
-      int skipCount = typeSymbol.IsReferenceType ? 1 : 0;
-      var properties = typeSymbol.GetMembers().OfType<IPropertySymbol>().Skip(skipCount);
+      // A record deriving from a record lists its base's members first, as C#'s PrintMembers writes them.
+      var records = new List<INamedTypeSymbol>();
+      for (var type = typeSymbol; type is { IsRecord: true } && generator_.IsFromCode(type); type = type.BaseType) {
+        records.Insert(0, type);
+      }
+      var properties = records.SelectMany(record => record.GetMembers().OfType<IPropertySymbol>().Skip(record.IsReferenceType ? 1 : 0));
       var expressions = new List<LuaExpressionSyntax> { typeSymbol.Name.ToStringLiteral() };
-      expressions.AddRange(properties.Select(i => GetMemberName(i).ToStringLiteral()));
+      expressions.AddRange(properties.GroupBy(i => i.Name).Select(i => GetMemberName(i.First()).ToStringLiteral()));
       var function = new LuaFunctionExpressionSyntax();
       function.AddStatement(new LuaReturnStatementSyntax(expressions));
       typeDeclaration.AddMethod(LuaIdentifierNameSyntax.RecordMembers, function, false);
@@ -3856,8 +3860,38 @@ namespace CSharpLua {
 
 #region if else switch
 
+    // A condition of a type with its own operator true is that operator's answer, as C# asks it.
+    private LuaExpressionSyntax VisitCondition(ExpressionSyntax condition) {
+      var expression = VisitExpression(condition);
+      var type = semanticModel_.GetTypeInfo(condition).Type;
+      if (type is { SpecialType: not SpecialType.System_Boolean, TypeKind: TypeKind.Class or TypeKind.Struct } && !type.IsNullableType()
+        && !semanticModel_.Compilation.ClassifyConversion(type, semanticModel_.Compilation.GetSpecialType(SpecialType.System_Boolean)).IsImplicit) {
+        for (var i = type; i != null; i = i.BaseType) {
+          if (i.GetMembers("op_True").OfType<IMethodSymbol>().FirstOrDefault() is { } operatorTrue) {
+            return GetUserDefinedOperatorExpression(operatorTrue, new Func<LuaExpressionSyntax>[] { () => expression });
+          }
+        }
+      }
+      return expression;
+    }
+
+    // a && b and a || b of a type with its own &, |, true and false: a when false(a) (true(a) for ||), else a & b (a | b),
+    // where b is worked out only then.
+    private LuaExpressionSyntax BuildUserDefinedLogicExpression(BinaryExpressionSyntax node, IMethodSymbol bitOperator, bool isAnd) {
+      var test = bitOperator.ContainingType.GetMembers(isAnd ? "op_False" : "op_True").OfType<IMethodSymbol>().First();
+      var temp = GetTempIdentifier();
+      CurBlock.AddStatement(new LuaLocalVariableDeclaratorSyntax(temp, VisitExpression(node.Left)));
+      var ifStatement = new LuaIfStatementSyntax(GetUserDefinedOperatorExpression(test, new Func<LuaExpressionSyntax>[] { () => temp }).Not());
+      PushBlock(ifStatement.Body);
+      var right = VisitExpression(node.Right);
+      PopBlock();
+      ifStatement.Body.AddStatement(temp.Assignment(GetUserDefinedOperatorExpression(bitOperator, new Func<LuaExpressionSyntax>[] { () => temp, () => right })));
+      CurBlock.AddStatement(ifStatement);
+      return temp;
+    }
+
     public override LuaSyntaxNode VisitIfStatement(IfStatementSyntax node) {
-      var condition = VisitExpression(node.Condition);
+      var condition = VisitCondition(node.Condition);
       LuaIfStatementSyntax ifStatement = new LuaIfStatementSyntax(condition);
       WriteStatementOrBlock(node.Statement, ifStatement.Body);
       ifStatements_.Push(ifStatement);
@@ -4997,9 +5031,15 @@ namespace CSharpLua {
           return new LuaInvocationExpressionSyntax(LuaIdentifierNameSyntax.As, left, right);
         }
         case SyntaxKind.LogicalOrExpression: {
+          if (IsUserDefinedOperator(node, out var orOperator)) {
+            return BuildUserDefinedLogicExpression(node, orOperator, false);
+          }
           return BuildLogicOrBinaryExpression(node);
         }
         case SyntaxKind.LogicalAndExpression: {
+          if (IsUserDefinedOperator(node, out var andOperator)) {
+            return BuildUserDefinedLogicExpression(node, andOperator, true);
+          }
           return BuildLogicAndBinaryExpression(node);
         }
         case SyntaxKind.CoalesceExpression: {
@@ -5205,10 +5245,18 @@ namespace CSharpLua {
       }
     }
 
+    // The value ++ or -- gives the operand: one more or less, or what the type's own operator ++ or -- returns.
+    private LuaExpressionSyntax BuildIncrementValue(ExpressionSyntax node, LuaExpressionSyntax value, string operatorToken) {
+      if (IsUserDefinedOperator(node, out var methodSymbol)) {
+        return GetUserDefinedOperatorExpression(methodSymbol, new Func<LuaExpressionSyntax>[] { () => value });
+      }
+      return value.Binary(operatorToken, LuaIdentifierNameSyntax.One);
+    }
+
     private LuaSyntaxNode BuildPrefixUnaryExpression(bool isSingleLine, string operatorToken, LuaExpressionSyntax operand, PrefixUnaryExpressionSyntax node, bool isLocalVar = false) {
       var left = operand;
       CheckIncrementExpression(node.Operand, ref left, true);
-      LuaExpressionSyntax binary = left.Binary(operatorToken, LuaIdentifierNameSyntax.One);
+      LuaExpressionSyntax binary = BuildIncrementValue(node, left, operatorToken);
       CheckIncrementExpression(node.Operand, ref binary, false);
       if (isSingleLine) {
         return operand.Assignment(binary);
@@ -5229,7 +5277,7 @@ namespace CSharpLua {
       set.IsGetOrAdd = false;
       LuaExpressionSyntax left = get;
       CheckIncrementExpression(node.Operand, ref left, true);
-      LuaExpressionSyntax binary = left.Binary(operatorToken, LuaIdentifierNameSyntax.One);
+      LuaExpressionSyntax binary = BuildIncrementValue(node, left, operatorToken);
       CheckIncrementExpression(node.Operand, ref binary, false);
       if (isSingleLine) {
         set.ArgumentList.AddArgument(binary);
@@ -5281,7 +5329,7 @@ namespace CSharpLua {
         return new LuaInvocationExpressionSyntax(LuaIdentifierNameSyntax.Index, expression, LuaIdentifierNameSyntax.True);
       }
 
-      if (IsUserDefinedOperator(node, out var methodSymbol)) {
+      if (kind is not (SyntaxKind.PreIncrementExpression or SyntaxKind.PreDecrementExpression) && IsUserDefinedOperator(node, out var methodSymbol)) {
         var type = semanticModel_.GetTypeInfo(node.Operand).Type;
         if (type != null && type.IsNullableType()) {
           var arguments = new List<Func<LuaExpressionSyntax>>();
@@ -5378,7 +5426,7 @@ namespace CSharpLua {
       if (isSingleLine) {
         var left = operand;
         CheckIncrementExpression(node.Operand, ref left, true);
-        LuaExpressionSyntax binary = left.Binary(operatorToken, LuaIdentifierNameSyntax.One);
+        LuaExpressionSyntax binary = BuildIncrementValue(node, left, operatorToken);
         CheckIncrementExpression(node.Operand, ref binary, false);
         return operand.Assignment(binary);
       } else {
@@ -5386,7 +5434,7 @@ namespace CSharpLua {
         CurBlock.Statements.Add(new LuaLocalVariableDeclaratorSyntax(temp, operand));
         LuaExpressionSyntax left = temp;
         CheckIncrementExpression(node.Operand, ref left, true);
-        LuaExpressionSyntax binary = left.Binary(operatorToken, LuaIdentifierNameSyntax.One);
+        LuaExpressionSyntax binary = BuildIncrementValue(node, left, operatorToken);
         CheckIncrementExpression(node.Operand, ref binary, false);
         CurBlock.Statements.Add(operand.Assignment(binary));
         return temp;
@@ -5398,7 +5446,7 @@ namespace CSharpLua {
       if (isSingleLine) {
         LuaExpressionSyntax left = get;
         CheckIncrementExpression(node.Operand, ref left, true);
-        LuaExpressionSyntax binary = left.Binary(operatorToken, LuaIdentifierNameSyntax.One);
+        LuaExpressionSyntax binary = BuildIncrementValue(node, left, operatorToken);
         CheckIncrementExpression(node.Operand, ref binary, false);
         set.ArgumentList.AddArgument(binary);
         return set;
@@ -5407,7 +5455,7 @@ namespace CSharpLua {
         CurBlock.Statements.Add(new LuaLocalVariableDeclaratorSyntax(temp, get));
         LuaExpressionSyntax left = temp;
         CheckIncrementExpression(node.Operand, ref left, true);
-        LuaExpressionSyntax binary = left.Binary(operatorToken, LuaIdentifierNameSyntax.One);
+        LuaExpressionSyntax binary = BuildIncrementValue(node, left, operatorToken);
         CheckIncrementExpression(node.Operand, ref binary, false);
         set.ArgumentList.AddArgument(binary);
         CurBlock.AddStatement(set);
@@ -5658,7 +5706,7 @@ namespace CSharpLua {
     private LuaWhileStatementSyntax BuildWhileStatement(ExpressionSyntax nodeCondition, StatementSyntax nodeStatement) {
       LuaBlockSyntax conditionBody = new LuaBlockSyntax();
       PushBlock(conditionBody);
-      var condition = nodeCondition != null ? VisitExpression(nodeCondition) : LuaIdentifierNameSyntax.True;
+      var condition = nodeCondition != null ? VisitCondition(nodeCondition) : LuaIdentifierNameSyntax.True;
       PopBlock();
 
       LuaWhileStatementSyntax whileStatement;
@@ -5713,7 +5761,7 @@ namespace CSharpLua {
       LuaBlockSyntax body = new LuaBlockSyntax();
       PushBlock(body);
       VisitLoopBody(node.Statement, body);
-      var condition = VisitExpression(node.Condition);
+      var condition = VisitCondition(node.Condition);
       if (node.Condition is BinaryExpressionSyntax) {
         condition = condition.Parenthesized();
       }
@@ -5754,7 +5802,7 @@ namespace CSharpLua {
       bool mayBeNullOrFalse = MayBeNullOrFalse(node.WhenTrue);
       if (mayBeNullOrFalse) {
         var temp = GetTempIdentifier();
-        var condition = VisitExpression(node.Condition);
+        var condition = VisitCondition(node.Condition);
         LuaIfStatementSyntax ifStatement = new LuaIfStatementSyntax(condition);
         PushBlock(ifStatement.Body);
         var whenTrue = VisitExpression(node.WhenTrue);
@@ -5772,12 +5820,13 @@ namespace CSharpLua {
         CurBlock.AddStatement(ifStatement);
         return temp;
       } else {
-        LuaExpressionSyntax Accept(ExpressionSyntax expressionNode) {
-          var expression = VisitExpression(expressionNode);
+        LuaExpressionSyntax Parenthesized(LuaExpressionSyntax expression) {
           return expression is LuaBinaryExpressionSyntax ? expression.Parenthesized() : expression;
         }
 
-        var condition = Accept(node.Condition);
+        LuaExpressionSyntax Accept(ExpressionSyntax expressionNode) => Parenthesized(VisitExpression(expressionNode));
+
+        var condition = Parenthesized(VisitCondition(node.Condition));
         var whenTrue = Accept(node.WhenTrue);
         var whenFalse = Accept(node.WhenFalse);
         return condition.And(whenTrue).Or(whenFalse);

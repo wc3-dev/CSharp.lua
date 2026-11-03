@@ -1435,6 +1435,11 @@ namespace CSharpLua {
     }
 
     private LuaIdentifierNameSyntax GetMemberName(ISymbol symbol) {
+      // A record's own Equals, == and != are the core's (System.RecordType), which every record inherits under their plain
+      // names; a derived record's would be numbered as overloads (Equals1, op_Equality1), which nothing has.
+      if (symbol is IMethodSymbol { IsImplicitlyDeclared: true, Name: "Equals" or "op_Equality" or "op_Inequality" } && symbol.ContainingType.IsRecord) {
+        return symbol.Name;
+      }
       return generator_.GetMemberName(symbol);
     }
 

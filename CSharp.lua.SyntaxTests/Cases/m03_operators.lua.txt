@@ -13,7 +13,7 @@ True False True False
 6
 # T7
 t
-t
+f
 # T8
 True False
 # T9
