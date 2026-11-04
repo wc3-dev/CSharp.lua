@@ -491,11 +491,21 @@ namespace CSharpLua {
     }
 
     internal void Render(LuaBinaryExpressionSyntax node) {
-      node.Left.Render(this);
+      RenderBinaryOperand(node, node.Left);
       WriteSpace();
       Write(node.OperatorToken);
       WriteSpace();
-      node.Right.Render(this);
+      RenderBinaryOperand(node, node.Right);
+    }
+
+    // Lua's and/or bind looser than its other operators, and or looser than and, so an and/or the compiler built (a
+    // nullable's none and none + 2) under a tighter operator keeps its grouping in parentheses.
+    private void RenderBinaryOperand(LuaBinaryExpressionSyntax node, LuaExpressionSyntax operand) {
+      if (operand is LuaBinaryExpressionSyntax { IsLogic: true } logic && node.OperatorToken != LuaSyntaxNode.Tokens.Or && (node.OperatorToken != LuaSyntaxNode.Tokens.And || logic.OperatorToken == LuaSyntaxNode.Tokens.Or)) {
+        operand.Parenthesized().Render(this);
+      } else {
+        operand.Render(this);
+      }
     }
 
     public void Render(LuaIfStatementSyntax node) {
