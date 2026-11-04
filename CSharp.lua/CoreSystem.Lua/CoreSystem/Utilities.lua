@@ -38,7 +38,7 @@ define("System.Environment", {
   end,
   getStackTrace = System.traceback,
   getTickCount = function ()
-    return System.currentTimeMillis() % 2147483648
+    return System.currentTimeMillis() & 0x7fffffff
   end
 })
 
