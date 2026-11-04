@@ -3290,34 +3290,17 @@ namespace CSharpLua {
     }
 
     private IMethodSymbol GetDelegateTargetMethodSymbol(CSharpSyntaxNode node) {
-      var parent = node.Parent;
-      switch (parent.Kind()) {
-        case SyntaxKind.Argument: {
-          var argument = (ArgumentSyntax)parent;
-          var symbol = (IMethodSymbol)semanticModel_.GetSymbolInfo(argument.Parent.Parent).Symbol;
-          var parameter = GetParameterSymbol(symbol.OriginalDefinition, argument);
-          var type = (INamedTypeSymbol)parameter.Type;
-          return type.DelegateInvokeMethod;
-        }
-        case SyntaxKind.EqualsValueClause: {
-          var variableDeclaration = (VariableDeclarationSyntax)parent.Parent.Parent;
-          var type = (INamedTypeSymbol)semanticModel_.GetTypeInfo(variableDeclaration.Type).Type;
-          return type.DelegateInvokeMethod;
-        }
-        case SyntaxKind.SimpleAssignmentExpression:
-        case SyntaxKind.AddAssignmentExpression:
-        case SyntaxKind.SubtractAssignmentExpression: {
-          var assignment = (AssignmentExpressionSyntax)parent;
-          var type = (INamedTypeSymbol)semanticModel_.GetTypeInfo(assignment.Left).Type;
-          return type.DelegateInvokeMethod;
-        }
-        case SyntaxKind.ReturnStatement: {
-          var type = (INamedTypeSymbol)CurMethodInfoOrNull.Symbol.ReturnType;
-          return type.DelegateInvokeMethod;
-        }
-        default:
-          throw new InvalidProgramException();
+      // Compiled code passes a delegate's type arguments when it calls it, so its own definition's parameter can leave them
+      // to the call; the core's Lua passes none, so a method of the core takes the parameter of its given type arguments.
+      if (node.Parent is ArgumentSyntax argument && semanticModel_.GetSymbolInfo(argument.Parent.Parent).Symbol is IMethodSymbol symbol) {
+        var parameter = GetParameterSymbol(generator_.IsFromLuaModule(symbol) ? symbol.OriginalDefinition : symbol, argument);
+        return ((INamedTypeSymbol)parameter.Type).DelegateInvokeMethod;
       }
+      while (node.Parent is ParenthesizedExpressionSyntax parenthesized) {
+        node = parenthesized;
+      }
+      var typeInfo = node.Parent is CastExpressionSyntax cast ? semanticModel_.GetTypeInfo(cast).Type : semanticModel_.GetTypeInfo(node).ConvertedType;
+      return (typeInfo as INamedTypeSymbol)?.DelegateInvokeMethod ?? throw new InvalidProgramException();
     }
 
     private void CheckDelegateBind(IMethodSymbol symbol, CSharpSyntaxNode node, ref LuaExpressionSyntax nameExpression) {
@@ -3394,7 +3377,7 @@ namespace CSharpLua {
 
           if (GenericPlaceholder.IsEnable(placeholders)) {
             if (placeholders.TrueForAll(i => !i.IsTypeParameter)) {
-              if (placeholders.Count <= 3) {
+              if (placeholders.Count <= 3 && symbol.Parameters.Length == 1) {
                 string bindMethodName = LuaIdentifierNameSyntax.DelegateBind.ValueText + placeholders.Count;
                 var invocationExpression = new LuaInvocationExpressionSyntax(bindMethodName, nameExpression);
                 invocationExpression.AddArguments(placeholders.Select(i => i.Build(this)));
