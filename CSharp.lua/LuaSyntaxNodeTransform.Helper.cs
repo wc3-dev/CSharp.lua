@@ -517,6 +517,9 @@ namespace CSharpLua {
       return invocation;
     }
 
+    // In the game's Lua, whose integers are 32-bit, the literal -2147483648 is a float: 2147483648 fits no integer.
+    private static LuaIdentifierLiteralExpressionSyntax IntMinimumLiteral => new("(-2147483647 - 1)");
+
     private LuaLiteralExpressionSyntax GetLiteralExpression(object constantValue) {
       if (constantValue != null) {
         var code = Type.GetTypeCode(constantValue.GetType());
@@ -539,10 +542,19 @@ namespace CSharpLua {
             double v = (double)constantValue;
             return new LuaDoubleLiteralExpressionSyntax(v, true);
           }
+          case TypeCode.Int32: {
+            if (constantValue is int.MinValue) {
+              return IntMinimumLiteral;
+            }
+            break;
+          }
           case TypeCode.Int64: {
             if (constantValue is long.MinValue) {
               const long kMinInteger = long.MinValue + 1;     // in lua5.4 long.MinValue will be float
               return new LuaIdentifierLiteralExpressionSyntax("(" + kMinInteger.ToString(CultureInfo.InvariantCulture) + " - 1)");
+            }
+            if (constantValue is (long)int.MinValue) {
+              return IntMinimumLiteral;
             }
             break;
           }
