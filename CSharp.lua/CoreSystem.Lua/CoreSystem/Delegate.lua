@@ -253,21 +253,19 @@ function System.bind(f, n, ...)
     local args = { ... }
     fn = function (...)
       local len = select("#", ...)
-      if len == n then
+      if len == 1 and n == 1 then
         return f(..., unpack(args))
-      else
-        assert(len > n)
-        local t = { ... }
-        for i = 1, #args do
-          local j = args[i]
-          if type(j) == "number" then
-            j = select(n + j, ...)
-            assert(j)
-          end
-          t[n + i] = j
-        end
-        return f(unpack(t, 1, n + #args))
       end
+      local t = { ... }
+      for i = 1, #args do
+        local j = args[i]
+        if type(j) == "number" then
+          j = select(n + j, ...)
+          assert(j)
+        end
+        t[n + i] = j
+      end
+      return f(unpack(t, 1, n + #args))
     end
     gt[gk] = fn
   end
