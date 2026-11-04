@@ -966,7 +966,7 @@ function System.ToInt32(v, checked)
   if checked then
     throw(System.OverflowException(), 1)
   end
-  return -2147483648
+  return (-2147483647 - 1)
 end
 
 function System.ToInt64(v, checked)

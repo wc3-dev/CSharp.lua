@@ -60,7 +60,7 @@ local function fusedMultiplyAdd(a, b, c)
 end
 
 local function ilogB(a)
-  return a == 0 and -2147483648 or floor(log(abs(a)) / ln2)
+  return a == 0 and (-2147483647 - 1) or floor(log(abs(a)) / ln2)
 end
 
 local function log2(a)
