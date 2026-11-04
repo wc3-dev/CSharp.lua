@@ -160,7 +160,7 @@ namespace CSharpLua {
               GetObjectCreationInitializer(new LuaMemberAccessExpressionSyntax(temp, leftExpression, leftExpression is not LuaIdentifierNameSyntax), rightNode, expression);
             }
           } else {
-            var right = assignment.Right.AcceptExpression(this);
+            var right = VisitExpression(assignment.Right);
             if (assignment.Left.IsKind(SyntaxKind.ImplicitElementAccess)) {
               var argumentList = (LuaArgumentListSyntax)left;
               LuaIdentifierNameSyntax methodName = LuaSyntaxNode.Tokens.Set;
@@ -189,11 +189,11 @@ namespace CSharpLua {
           if (expression.IsKind(SyntaxKind.ComplexElementInitializerExpression)) {
             var initializer = (InitializerExpressionSyntax)expression;
             foreach (var expressionNode in initializer.Expressions) {
-              var argument = expressionNode.AcceptExpression(this);
+              var argument = VisitExpression(expressionNode);
               invocation.AddArgument(argument);
             }
           } else {
-            var value = expression.AcceptExpression(this);
+            var value = VisitExpression(expression);
             invocation.AddArgument(value);
           }
           PopBlock();
