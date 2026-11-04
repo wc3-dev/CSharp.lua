@@ -20,7 +20,29 @@ local throw = System.throw
 local ArgumentOutOfRangeException = System.ArgumentOutOfRangeException
 local IndexOutOfRangeException = System.IndexOutOfRangeException
 
+-- foreach over a span: its items from the first to the last, read as its indexer reads them.
+local SpanEnumerator = {}
+SpanEnumerator.__index = SpanEnumerator
+
+function SpanEnumerator.MoveNext(this)
+  local index = this.index + 1
+  if index < this.length then
+    this.index = index
+    return true
+  end
+  return false
+end
+
+function SpanEnumerator.getCurrent(this)
+  return this.span:get(this.index)
+end
+
+local function getEnumerator(this)
+  return setmetatable({ span = this, index = -1, length = this:getLength() }, SpanEnumerator)
+end
+
 local Span = {
+  GetEnumerator = getEnumerator,
   __ctor__ = function (this, input, ...)
     local t = type(input)
     if t == "table" then
