@@ -1298,7 +1298,7 @@ namespace CSharpLua {
       if (IsCurTypeSerializable || attributes.Count > 0 || generator_.HasMetadataAttribute(CurTypeSymbol)) {
         AddFieldMetaData(symbol, identifier, attributes);
       }
-      var value = new LuaIdentifierLiteralExpressionSyntax(Convert.ToString(symbol.ConstantValue, CultureInfo.InvariantCulture));
+      var value = GetLiteralExpression(symbol.ConstantValue);
       return new LuaKeyValueTableItemSyntax(identifier, value);
     }
 
@@ -5562,6 +5562,9 @@ namespace CSharpLua {
         case SyntaxKind.UnaryMinusExpression: {
           if (operand is LuaLiteralExpressionSyntax {Text: "0"}) {
             return operand;
+          }
+          if (semanticModel_.GetConstantValue(node) is { HasValue: true, Value: int.MinValue or (long)int.MinValue }) {
+            return IntMinimumLiteral;
           }
           if (IsCheckedIntArithmetic(node)) {
             return LuaIdentifierNameSyntax.System.MemberAccess("checkedNeg").Invocation(operand);
