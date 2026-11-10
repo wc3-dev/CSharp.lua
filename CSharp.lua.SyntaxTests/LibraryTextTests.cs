@@ -130,6 +130,15 @@ Console.WriteLine(""1\n2"".ReplaceLineEndings(""%1""));");
 Console.WriteLine(""a-b"".Replace(""-"", ""%"") + "" "" + ""a-b"".Replace(""-"", ""%1"") + "" "" + ""50"".Replace(""0"", ""0%%""));");
     }
 
+    // Contains passed its escaped needle as find's last argument, so gsub's count of escapes became the start index, and a
+    // needle with pattern signs missed a match that began before it.
+    [TestMethod]
+    public void TestStringContainsWithPatternSigns() {
+      SameAsNet.Prints(@"
+Console.WriteLine(""X failed (Timer 500)"".Contains(""X failed (Timer 500)"") + "" "" + ""(a)"".Contains(""(a)"") + "" "" + ""a.b-c%d"".Contains(""a.b-c%d""));
+Console.WriteLine(""abc"".Contains(""a.c"") + "" "" + ""ab"".Contains("""") + "" "" + ""(A)"".Contains(""(a)"", StringComparison.OrdinalIgnoreCase) + "" "" + ""(a)"".Contains('('));");
+    }
+
     [TestMethod]
     public void TestIntern() {
       SameAsNet.Prints(@"

@@ -411,7 +411,7 @@ local function contains(this, value, comparisonType)
       this, value = lower(this), lower(value)
     end
   end
-  return find(this, escape(value)) ~= nil
+  return find(this, value, 1, true) ~= nil
 end
 
 local function copyTo(this, sourceIndex, destination, destinationIndex, count)
