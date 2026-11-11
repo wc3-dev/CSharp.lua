@@ -24,8 +24,8 @@ the members of collections, LINQ, StringBuilder, char, string, Math, Convert, Bi
 StringComparer, BitArray and Span the core lacked, AsSpan from a start, an index or a range, an int's >> of a negative
 number, structs set field by field in a nested block or a switch section, the conversions of an initializer's values,
 foreach over a span, the integer constant -2^31 and the core's own -2^31, which the game's 32-bit Lua read as a
-float, generic method groups, an and/or under a tighter operator, and string.Contains with pattern signs. Each change
-is in the history of the moonwell-package branch.
+float, generic method groups, an and/or under a tighter operator, string.Contains with pattern signs, and structs
+copied where they are stored or given to a delegate. Each change is in the history of the moonwell-package branch.
 
 CSharp.lua/CSharp.lua.csproj
 CSharp.lua/Compiler.cs
