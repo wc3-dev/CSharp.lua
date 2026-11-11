@@ -21,8 +21,7 @@ True
 # T10
 0 0
 # T11
-#! T11 attempt to index a number value (local 'x')
-T11 EXC
+4
 # T12
 B>A
 # T13

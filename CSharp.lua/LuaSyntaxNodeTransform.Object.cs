@@ -623,6 +623,7 @@ namespace CSharpLua {
       PushFunction(function);
 
       var defaultParamStatements = new List<LuaStatementSyntax>();
+      DataFlowAnalysis flow = null;
       if (parameters != null) {
         foreach (var parameter in parameters) {
           var luaParameter = parameter.Accept<LuaIdentifierNameSyntax>(this);
@@ -632,6 +633,15 @@ namespace CSharpLua {
             var ifStmt = new LuaIfStatementSyntax(luaParameter.EqualsEquals(LuaIdentifierLiteralExpressionSyntax.Nil));
             ifStmt.Body.AddStatement(luaParameter.Assignment(defaultVal));
             defaultParamStatements.Add(ifStmt);
+          }
+          // A struct the lambda changes, or keeps in a function of its own, is its own copy: the core (list.ForEach)
+          // calls it with the collection's own value.
+          if (semanticModel_.GetDeclaredSymbol(parameter) is { RefKind: RefKind.None, Type: var type } parameterSymbol
+            && type.IsCustomValueType() && !generator_.IsReadOnlyStruct(type) && !type.IsNullableWithBasicElementType()) {
+            flow ??= body is ExpressionSyntax expressionBody ? semanticModel_.AnalyzeDataFlow(expressionBody) : semanticModel_.AnalyzeDataFlow((StatementSyntax)body);
+            if (!flow.Succeeded || flow.WrittenInside.Contains(parameterSymbol) || flow.CapturedInside.Contains(parameterSymbol)) {
+              defaultParamStatements.Add(new LuaExpressionStatementSyntax(luaParameter.Assignment(BuildValueTypeClone(type, luaParameter))));
+            }
           }
         }
       }
