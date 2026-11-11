@@ -1306,6 +1306,28 @@ namespace CSharpLua {
       return parameter;
     }
 
+    // The expression whose value is stored where node is read: node itself, the member access it names (h.Value), and
+    // what only passes that value on (parentheses, either result of ?: and ??, a switch expression's arm, a trailing !).
+    private static SyntaxNode GetStoredValue(ExpressionSyntax node) {
+      SyntaxNode value = node;
+      if (value.Parent is MemberAccessExpressionSyntax memberAccess && memberAccess.Name == value) {
+        value = memberAccess;
+      }
+      while (true) {
+        var parent = value.Parent;
+        bool passesOn = parent.Kind() switch {
+          SyntaxKind.ParenthesizedExpression or SyntaxKind.SuppressNullableWarningExpression or SyntaxKind.CoalesceExpression => true,
+          SyntaxKind.ConditionalExpression => ((ConditionalExpressionSyntax)parent).Condition != value,
+          SyntaxKind.SwitchExpressionArm => ((SwitchExpressionArmSyntax)parent).Expression == value,
+          _ => false,
+        };
+        if (!passesOn) {
+          return value;
+        }
+        value = parent.IsKind(SyntaxKind.SwitchExpressionArm) ? parent.Parent : parent;
+      }
+    }
+
     private void CheckValueTypeClone(ITypeSymbol typeSymbol, ExpressionSyntax node, ref LuaExpressionSyntax expression, bool isPropertyField = false) {
       if (typeSymbol.IsCustomValueType() && !generator_.IsReadOnlyStruct(typeSymbol) && !typeSymbol.IsNullableWithBasicElementType() && expression is not LuaPropertyTemplateExpressionSyntax) {
         bool need = false;
@@ -1332,9 +1354,10 @@ namespace CSharpLua {
             }
           }
         } else {
-          switch (node.Parent.Kind()) {
+          var value = GetStoredValue(node);
+          switch (value.Parent.Kind()) {
             case SyntaxKind.Argument: {
-              var argument = (ArgumentSyntax)node.Parent;
+              var argument = (ArgumentSyntax)value.Parent;
               switch (argument.RefKindKeyword.Kind()) {
                 case SyntaxKind.RefKeyword:
                 case SyntaxKind.OutKeyword:
@@ -1345,7 +1368,8 @@ namespace CSharpLua {
 
               if (argument.Parent.IsKind(SyntaxKind.ArgumentList)) {
                 if (semanticModel_.GetSymbolInfo(argument.Parent.Parent).Symbol is IMethodSymbol symbol) {
-                  if (generator_.IsFromAssembly(symbol) && !symbol.ContainingType.IsCollectionType()) {
+                  // A delegate's call is a call of the map's own code, whatever library declares the delegate.
+                  if (generator_.IsFromAssembly(symbol) && !symbol.ContainingType.IsCollectionType() && symbol.MethodKind != MethodKind.DelegateInvoke) {
                     break;
                   }
 
@@ -1359,62 +1383,44 @@ namespace CSharpLua {
               break;
             }
             case SyntaxKind.AnonymousObjectMemberDeclarator:
-            case SyntaxKind.ReturnStatement: {
+            case SyntaxKind.ReturnStatement:
+            case SyntaxKind.YieldReturnStatement:
+            case SyntaxKind.ArrowExpressionClause:
+            case SyntaxKind.CollectionInitializerExpression:
+            case SyntaxKind.ComplexElementInitializerExpression:
+            case SyntaxKind.ArrayInitializerExpression:
+            case SyntaxKind.ExpressionElement: {
               need = true;
               break;
             }
+            case SyntaxKind.SimpleLambdaExpression:
+            case SyntaxKind.ParenthesizedLambdaExpression: {
+              need = ((LambdaExpressionSyntax)value.Parent).Body == value;
+              break;
+            }
             case SyntaxKind.SimpleAssignmentExpression: {
-              var assignment = (AssignmentExpressionSyntax)node.Parent;
-              if (assignment.Right == node) {
-                var symbol = semanticModel_.GetSymbolInfo(assignment.Left).Symbol;
-                if (symbol != null && generator_.IsFromAssembly(symbol)) {
-                  break;
-                }
-
-                if (assignment.Left.Kind().IsTupleDeclaration()) {
-                  break;
-                }
-
-                need = true;
-              }
+              var assignment = (AssignmentExpressionSyntax)value.Parent;
+              need = assignment.Right == value && !assignment.Left.Kind().IsTupleDeclaration();
               break;
             }
             case SyntaxKind.EqualsValueClause: {
-              var equalsValueClause = (EqualsValueClauseSyntax)node.Parent;
-              if (equalsValueClause.Value == node) {
-                need = true;
-              }
-              break;
-            }
-            case SyntaxKind.SimpleMemberAccessExpression: {
-              var memberAccess = (MemberAccessExpressionSyntax)node.Parent;
-              if (memberAccess.Name == node) {
-                switch (memberAccess.Parent.Kind()) {
-                  case SyntaxKind.EqualsValueClause: {
-                    need = true;
-                    break;
-                  }
-
-                  case SyntaxKind.SimpleAssignmentExpression: {
-                    var assignment = (AssignmentExpressionSyntax)memberAccess.Parent;
-                    if (assignment.Right == memberAccess) {
-                      need = true;
-                    }
-                    break;
-                  }
-                }
-              }
+              need = true;
               break;
             }
           }
         }
 
         if (need) {
-          expression = typeSymbol.IsNullableType()
-            ? LuaIdentifierNameSyntax.NullableClone.Invocation(expression)
-            : expression.MemberAccess(LuaIdentifierNameSyntax.Clone, true).Invocation();
+          expression = BuildValueTypeClone(typeSymbol, expression);
         }
       }
+    }
+
+    // A type parameter held to struct may be a number, which has no copy to make; the core's clone gives it back.
+    private static LuaExpressionSyntax BuildValueTypeClone(ITypeSymbol typeSymbol, LuaExpressionSyntax expression) {
+      return typeSymbol.IsNullableType() || typeSymbol.TypeKind == TypeKind.TypeParameter
+        ? LuaIdentifierNameSyntax.NullableClone.Invocation(expression)
+        : expression.MemberAccess(LuaIdentifierNameSyntax.Clone, true).Invocation();
     }
 
     private LuaDocumentStatement BuildDocumentationComment(CSharpSyntaxNode node) {
