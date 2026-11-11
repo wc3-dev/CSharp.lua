@@ -2623,7 +2623,8 @@ namespace CSharpLua {
 
         var codeTemplateExpression = CheckCodeTemplateInvocationExpression(symbol, node);
         if (codeTemplateExpression != null) {
-          return codeTemplateExpression;
+          // A template may be written as an operator (a or b), so its copy is taken of it in parentheses.
+          return CopyGivenBack(symbol, node, codeTemplateExpression, codeTemplateExpression.Parenthesized());
         }
       }
 
@@ -2640,7 +2641,20 @@ namespace CSharpLua {
       if (refOrOutArguments.Count > 0) {
         resultExpression = BuildInvokeRefOrOut(node, resultExpression, refOrOutArguments);
       }
-      return resultExpression;
+      return CopyGivenBack(symbol, node, resultExpression, resultExpression);
+    }
+
+    // A call that gives back a type parameter (list.First(), a generic class's Get()) gives the value it holds, not a
+    // copy, so it is copied where a variable would be.
+    private LuaExpressionSyntax CopyGivenBack(IMethodSymbol symbol, InvocationExpressionSyntax node, LuaExpressionSyntax expression, LuaExpressionSyntax copied) {
+      if (symbol != null && (symbol.ReducedFrom ?? symbol).OriginalDefinition.ReturnType.TypeKind == TypeKind.TypeParameter) {
+        var copy = copied;
+        CheckValueTypeClone(symbol.ReturnType, node, ref copy);
+        if (copy != copied) {
+          return copy;
+        }
+      }
+      return expression;
     }
 
     private LuaInvocationExpressionSyntax BuildExtensionMethodInvocation(IMethodSymbol reducedFrom, LuaExpressionSyntax expression) {
@@ -3006,7 +3020,13 @@ namespace CSharpLua {
         }
       }
 
-      return InternalVisitMemberAccessExpression(symbol, node);
+      var result = InternalVisitMemberAccessExpression(symbol, node);
+      // So does a property (n.Value, pair.Value); one read as its field is copied where its name is read.
+      if (symbol is IPropertySymbol { OriginalDefinition.Type.TypeKind: TypeKind.TypeParameter } property
+        && !(node.Name is IdentifierNameSyntax propertyName && IsPropertyField(propertyName, property))) {
+        CheckValueTypeClone(property.Type, node, ref result);
+      }
+      return result;
     }
 
     private LuaExpressionSyntax BuildStaticFieldName(ISymbol symbol, bool isReadOnly, IdentifierNameSyntax node) {
