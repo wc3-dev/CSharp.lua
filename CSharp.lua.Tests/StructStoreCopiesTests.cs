@@ -6,15 +6,16 @@ namespace CSharpLua.Tests {
   /// return. Put into a collection by an initializer, a collection expression or an indexer (new List&lt;P&gt; { a }, [a],
   /// list[0] = a), given to a delegate (f(a), list.ForEach(p => p.X = 9)), read through its owner (Bump(h.Value), return
   /// h.Value), or standing in parentheses, ?:, ??, a switch expression or an expression body (P Get() => value), it was the
-  /// same table, so a change to one was a change to the other. It is now a copy in each. A change made in place
-  /// (h.Value.X = 9, arr[0].Move(), a ref) still changes the original. The expected lines are what the sample prints on
-  /// .NET: the value that must be kept, then the changed one.
+  /// same table, so a change to one was a change to the other. So was a struct a call or a property gave back as a type
+  /// parameter (list.First(), queue.Peek(), n.Value, a generic class's Get()): it was the collection's or the object's
+  /// own. It is now a copy in each. A change made in place (h.Value.X = 9, arr[0].Move(), a ref) still changes the
+  /// original. The expected lines are what the sample prints on .NET: the value that must be kept, then the changed one.
   /// </summary>
   [TestClass]
   public class StructStoreCopiesTests {
     [TestMethod]
     public void TestAStructStoredOrGivenOnIsACopy() {
-      var output = GameScript.Run("StructStoreCopies", "Program", "P", "Outer", "Holder");
+      var output = GameScript.Run("StructStoreCopies", "Program", "P", "Outer", "Holder", "Box_1");
       var expected = string.Join("\n", new[] {
         "list-initializer 1 9",
         "dict-index-initializer 1 9",
@@ -68,6 +69,29 @@ namespace CSharpLua.Tests {
         "assign-parenthesized 1 9",
         "coalesce 1 9",
         "coalesce-right 1 9",
+        "linq-first 1 9",
+        "linq-first-or-default 1 9",
+        "linq-single 1 9",
+        "list-find 1 9",
+        "linq-first-argument 1 9",
+        "linq-first-array-initializer 1 9",
+        "queue-peek 1 9",
+        "stack-peek 1 9",
+        "dict-get-value-or-default 1 9",
+        "dict-values-first 1 9",
+        "dict-foreach-value 1 9",
+        "generic-class-method 1 9",
+        "generic-class-arrow-property 1 9",
+        "generic-class-block-property 1 9",
+        "generic-class-auto-property 1 9",
+        "generic-class-property-store 1 9",
+        "generic-method-element 1 9",
+        "nullable-value 1 9",
+        "nullable-get-value-or-default 1 9",
+        "enumerator-current 1 9",
+        "delegate-of-core 1 9",
+        "linq-first-read 1 9",
+        "linq-first-number 1 9",
         "field-in-place 11 11",
         "field-by-ref 9 9",
         "nested-in-place 10 10",

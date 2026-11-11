@@ -14,6 +14,15 @@ struct Outer {
 
 delegate void Change(P p);
 
+class Box<T> {
+  private T value_;
+  public T Auto { get; set; }
+  public T Arrow => value_;
+  public T Block { get { return value_; } set { value_ = value; } }
+  public void Set(T value) { value_ = value; }
+  public T Get() { return value_; }
+}
+
 class Holder {
   public P Value;
   public P Auto { get; set; }
@@ -31,6 +40,7 @@ class Program {
   public static void Bump(P p) { p.X = 9; }
   static void BumpRef(ref P p) { p.X = 9; }
   static P Give(Holder h) { return h.Value; }
+  static T FirstOf<T>(T[] items) { return items[0]; }
 
   // A struct put into a collection is a copy: changing the variable afterwards leaves the element as it was.
   static void Collections() {
@@ -96,6 +106,33 @@ class Program {
     { var a = new P(1); P? n = null; var c = n ?? a; c.X = 9; Line("coalesce-right", a.X, c.X); }
   }
 
+  // A struct a call or a property gives back as a type parameter is a copy of the one the collection or the object holds.
+  static void GivenBack() {
+    { var list = new List<P> { new P(1) }; var c = list.First(); c.X = 9; Line("linq-first", list[0].X, c.X); }
+    { var list = new List<P> { new P(1) }; var c = list.FirstOrDefault(); c.X = 9; Line("linq-first-or-default", list[0].X, c.X); }
+    { var list = new List<P> { new P(1) }; var c = list.Single(p => p.X == 1); c.X = 9; Line("linq-single", list[0].X, c.X); }
+    { var list = new List<P> { new P(1) }; var c = list.Find(p => p.X == 1); c.X = 9; Line("list-find", list[0].X, c.X); }
+    { var list = new List<P> { new P(1) }; Bump(list.First()); Line("linq-first-argument", list[0].X, 9); }
+    { var arr = new P[] { new P(1) }; var other = new P[] { arr.First() }; other[0].X = 9; Line("linq-first-array-initializer", arr[0].X, other[0].X); }
+    { var q = new Queue<P>(); q.Enqueue(new P(1)); var c = q.Peek(); c.X = 9; Line("queue-peek", q.Peek().X, c.X); }
+    { var s = new Stack<P>(); s.Push(new P(1)); var c = s.Peek(); c.X = 9; Line("stack-peek", s.Peek().X, c.X); }
+    { var dict = new Dictionary<int, P> { [0] = new P(1) }; var c = dict.GetValueOrDefault(0); c.X = 9; Line("dict-get-value-or-default", dict[0].X, c.X); }
+    { var dict = new Dictionary<int, P> { [0] = new P(1) }; var c = dict.Values.First(); c.X = 9; Line("dict-values-first", dict[0].X, c.X); }
+    { var dict = new Dictionary<int, P> { [0] = new P(1) }; foreach (var kv in dict) { var c = kv.Value; c.X = 9; } Line("dict-foreach-value", dict[0].X, 9); }
+    { var box = new Box<P>(); box.Set(new P(1)); var c = box.Get(); c.X = 9; Line("generic-class-method", box.Get().X, c.X); }
+    { var box = new Box<P>(); box.Set(new P(1)); var c = box.Arrow; c.X = 9; Line("generic-class-arrow-property", box.Get().X, c.X); }
+    { var box = new Box<P>(); box.Set(new P(1)); var c = box.Block; c.X = 9; Line("generic-class-block-property", box.Get().X, c.X); }
+    { var box = new Box<P>(); box.Auto = new P(1); var c = box.Auto; c.X = 9; Line("generic-class-auto-property", box.Auto.X, c.X); }
+    { var box = new Box<P>(); var a = new P(1); box.Block = a; a.X = 9; Line("generic-class-property-store", box.Get().X, a.X); }
+    { var arr = new P[] { new P(1) }; var c = FirstOf(arr); c.X = 9; Line("generic-method-element", arr[0].X, c.X); }
+    { var a = new P(1); P? n = a; var c = n.Value; c.X = 9; Line("nullable-value", n.Value.X, c.X); }
+    { var a = new P(1); P? n = a; var c = n.GetValueOrDefault(); c.X = 9; Line("nullable-get-value-or-default", n.Value.X, c.X); }
+    { var list = new List<P> { new P(1) }; var e = list.GetEnumerator(); e.MoveNext(); var c = e.Current; c.X = 9; Line("enumerator-current", list[0].X, c.X); }
+    { var list = new List<P> { new P(1) }; Func<P> first = list.First; var c = first(); c.X = 9; Line("delegate-of-core", list[0].X, c.X); }
+    { var list = new List<P> { new P(1) }; var x = list.First().X; Line("linq-first-read", list[0].X, x + 8); }
+    { var list = new List<int> { 1 }; var c = list.First(); c = 9; Line("linq-first-number", list[0], c); }
+  }
+
   // A change made in place is still a change to the original.
   static void InPlace() {
     { var h = new Holder(); h.Value = new P(1); h.Value.X = 9; h.Value.Move(); (h.Value).Move(); Line("field-in-place", 11, h.Value.X); }
@@ -109,6 +146,7 @@ class Program {
     Collections();
     Delegates();
     Stores();
+    GivenBack();
     InPlace();
   }
 }
