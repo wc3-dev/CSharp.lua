@@ -4912,17 +4912,18 @@ namespace CSharpLua {
 
     private LuaExpressionSyntax BuildLogicOrBinaryExpression(BinaryExpressionSyntax node) {
       var left = VisitExpression(node.Left);
+      // Taken before the right side's block, whose end frees its names: a || b || c had two locals of one name.
+      var temp = GetTempIdentifier();
       LuaBlockSyntax rightBody = new LuaBlockSyntax();
       PushBlock(rightBody);
       var right = VisitExpression(node.Right);
+      PopBlock();
       if (rightBody.Statements.Count == 0) {
-        PopBlock();
+        PopTempCount(1);
         return left.Or(right);
       }
 
-      var temp = GetTempIdentifier();
-      PopBlock();
-      CurBlock.Statements.Add(new LuaLocalVariableDeclaratorSyntax(temp));
+      CurBlock.Statements.Add(new LuaLocalVariableDeclaratorSyntax(temp, LuaIdentifierNameSyntax.False));
       LuaIfStatementSyntax leftIfStatement = new LuaIfStatementSyntax(left);
       CurBlock.Statements.Add(leftIfStatement);
       leftIfStatement.Body.AddStatement(temp.Assignment(LuaIdentifierNameSyntax.True));
@@ -4946,7 +4947,7 @@ namespace CSharpLua {
         return left.And(right);
       }
 
-      CurBlock.Statements.Add(new LuaLocalVariableDeclaratorSyntax(temp));
+      CurBlock.Statements.Add(new LuaLocalVariableDeclaratorSyntax(temp, LuaIdentifierNameSyntax.False));
       LuaIfStatementSyntax leftIfStatement = new LuaIfStatementSyntax(left);
       CurBlock.Statements.Add(leftIfStatement);
       leftIfStatement.Body.Statements.AddRange(rightBody.Statements);
