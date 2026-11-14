@@ -87,6 +87,9 @@ namespace CSharpLua {
       var files = GetProjectsSourceFiles(projects);
 #endif
       var packageBaseFolders = new List<string>();
+      // A package whose source is compiled is not referenced by its library too: an extension method on a type of another
+      // assembly ("text".Rainbow()) would be found twice and be ambiguous (CS0121).
+      var sourcePackages = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
       if (packages != null) {
         var searchDirectories = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var package in packages) {
@@ -105,6 +108,7 @@ namespace CSharpLua {
           if (packageFiles.Length > 0) {
             files = files.Concat(packageFiles);
             packageBaseFolders.Add(baseFolder);
+            sourcePackages.Add(package.PackageName);
           }
           if (IsDecompile(package, settings)) {
             var packageLibs = PackageHelper.EnumerateLibs(package, out baseFolder).ToArray();
@@ -179,7 +183,7 @@ namespace CSharpLua {
       }
       var codes = files.Select(i => (File.ReadAllText(i), i));
       var metas = settings.metas_.Concat(packages.Where(package => !IsDecompile(package, settings)).SelectMany(package => PackageHelper.EnumerateMetas(package)));
-      var libs = GetLibs(settings.libs_.Concat(packages.Where(package => !IsDecompile(package, settings)).SelectMany(package => PackageHelper.EnumerateLibs(package))), out var luaModuleLibs);
+      var libs = GetLibs(settings.libs_.Concat(packages.Where(package => !IsDecompile(package, settings) && !sourcePackages.Contains(package.PackageName)).SelectMany(package => PackageHelper.EnumerateLibs(package))), out var luaModuleLibs);
       settingInfo.LuaModuleLibs = luaModuleLibs.ToHashSet();
 
 #if USE_MSBUILD

@@ -25,8 +25,8 @@ StringComparer, BitArray and Span the core lacked, AsSpan from a start, an index
 number, structs set field by field in a nested block or a switch section, the conversions of an initializer's values,
 foreach over a span, the integer constant -2^31 and the core's own -2^31, which the game's 32-bit Lua read as a
 float, generic method groups, an and/or under a tighter operator, string.Contains with pattern signs, and structs
-copied where they are stored, given to a delegate or given back as a type parameter. Each change is in the history of
-the moonwell-package branch.
+copied where they are stored, given to a delegate or given back as a type parameter, and a package's library referenced
+beside its compiled source. Each change is in the history of the moonwell-package branch.
 
 CSharp.lua/CSharp.lua.csproj
 CSharp.lua/Compiler.cs
@@ -40,6 +40,7 @@ CSharp.lua/LuaAst/LuaStatementSyntax.cs
 CSharp.lua/LuaAst/LuaTypeDeclarationSyntax.cs
 CSharp.lua/LuaRenderer.cs
 CSharp.lua/LuaSyntaxGenerator.cs
+CSharp.lua/LuaSyntaxGeneratorFactory.cs
 CSharp.lua/LuaSyntaxNodeTransform.cs
 CSharp.lua/LuaSyntaxNodeTransform.Helper.cs
 CSharp.lua/LuaSyntaxNodeTransform.Object.cs
