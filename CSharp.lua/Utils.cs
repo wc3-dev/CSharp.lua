@@ -1406,17 +1406,27 @@ namespace CSharpLua {
       return false;
     }
 
-    public static int GetIsDeclarationInBinaryCount(this DeclarationPatternSyntax node) {
+    // How many parts that run only sometimes (the right of &&, || or ??, a branch of a conditional) the `is` of a pattern
+    // is inside, however deep in brackets or behind a `!`: each is written as a block of its own.
+    public static int GetIsPatternBlockCount(this PatternSyntax node) {
+      SyntaxNode current = node;
+      while (current.Parent is PatternSyntax or SubpatternSyntax or PropertyPatternClauseSyntax or PositionalPatternClauseSyntax) {
+        current = current.Parent;
+      }
+      if (current.Parent is not IsPatternExpressionSyntax) {
+        return 0;
+      }
+
       int count = 0;
-      var current = node.Parent;
-      while (true) {
-        var p = current.Parent;
-        if (p is BinaryExpressionSyntax b && b.Right == current) {
-          current = p;
-          ++count;
-        } else {
-          break;
+      current = current.Parent;
+      while (current.Parent is ExpressionSyntax parent and not AnonymousFunctionExpressionSyntax) {
+        switch (parent) {
+          case BinaryExpressionSyntax binary when binary.Right == current && binary.Kind() is SyntaxKind.LogicalAndExpression or SyntaxKind.LogicalOrExpression or SyntaxKind.CoalesceExpression:
+          case ConditionalExpressionSyntax conditional when conditional.Condition != current:
+            ++count;
+            break;
         }
+        current = parent;
       }
       return count;
     }
