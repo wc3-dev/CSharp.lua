@@ -1864,7 +1864,7 @@ namespace CSharpLua {
           var varPattern = (VarPatternSyntax)pattern;
           if (!varPattern.IsKind(SyntaxKind.DiscardPattern)) {
             var name = varPattern.Designation.Accept<LuaIdentifierNameSyntax>(this);
-            CurBlock.AddStatement(new LuaLocalVariableDeclaratorSyntax(name, targetExpression));
+            AddPatternVariable(pattern, name, targetExpression);
           }
           return LuaIdentifierLiteralExpressionSyntax.True;
         }
@@ -1877,15 +1877,8 @@ namespace CSharpLua {
         }
         case SyntaxKind.DeclarationPattern: {
           var declarationPattern = (DeclarationPatternSyntax)pattern;
-          int count = declarationPattern.GetIsDeclarationInBinaryCount();
           var name = declarationPattern.Designation.Accept<LuaIdentifierNameSyntax>(this);
-          if (count == 0) {
-            CurBlock.AddStatement(new LuaLocalVariableDeclaratorSyntax(name, targetExpression));
-          } else {
-            var block = GetBlock(count + 1);
-            block.AddStatement(new LuaLocalVariableDeclaratorSyntax(name));
-            CurBlock.AddStatement(name.Assignment(targetExpression));
-          }
+          AddPatternVariable(pattern, name, targetExpression);
           return BuildIsPatternExpression(targetNode, declarationPattern.Type, name);
         }
         case SyntaxKind.NotPattern: {
@@ -1899,7 +1892,7 @@ namespace CSharpLua {
             case SyntaxKind.DeclarationPattern: {
               var declarationPattern = (DeclarationPatternSyntax)notPattern.Pattern;
               var name = declarationPattern.Designation.Accept<LuaIdentifierNameSyntax>(this);
-              CurBlock.AddStatement(new LuaLocalVariableDeclaratorSyntax(name, targetExpression));
+              AddPatternVariable(pattern, name, targetExpression);
               var expression = BuildIsPatternExpression(targetNode, declarationPattern.Type, name);
               return BuildNotIsExpression(expression);
             }
@@ -1956,12 +1949,30 @@ namespace CSharpLua {
           LuaIdentifierNameSyntax name;
           if (recursivePattern.Designation != null) {
             name = recursivePattern.Designation.Accept<LuaIdentifierNameSyntax>(this);
-            CurBlock.AddStatement(new LuaLocalVariableDeclaratorSyntax(name, targetExpression));
+            AddPatternVariable(pattern, name, targetExpression);
           } else {
             name = GetIdentifierNameFromExpression(targetExpression);
           }
           return BuildRecursivePatternExpression(recursivePattern, name, targetNode);
         }
+      }
+    }
+
+    // The block a variable that a pattern declares is declared in. An `is` in a part of a condition that runs only
+    // sometimes (the right of &&, || or ??, a branch of a conditional) is written inside a block of its own for each, and
+    // its variable is declared outside them, to be seen after the condition:
+    // `if (a == null || !(b is T t)) { return; } Use(t);`.
+    private LuaBlockSyntax GetPatternVariableBlock(PatternSyntax pattern) {
+      return GetBlock(pattern.GetIsPatternBlockCount() + 1);
+    }
+
+    private void AddPatternVariable(PatternSyntax pattern, LuaIdentifierNameSyntax name, LuaExpressionSyntax value) {
+      var block = GetPatternVariableBlock(pattern);
+      if (block == CurBlock) {
+        CurBlock.AddStatement(new LuaLocalVariableDeclaratorSyntax(name, value));
+      } else {
+        block.AddStatement(new LuaLocalVariableDeclaratorSyntax(name));
+        CurBlock.AddStatement(name.Assignment(value));
       }
     }
 
@@ -2191,9 +2202,17 @@ namespace CSharpLua {
 
       // Lua has no assignment inside a condition: the member is read into a local before it, behind the checks on the way.
       // Each such local has a name of its own, as two arms of a switch may declare the same name.
-      var local = GetTempIdentifier();
-      AddLocalVariableMapping(local, single);
-      CurBlock.AddStatement(new LuaLocalVariableDeclaratorSyntax(local));
+      // Declared outside the block of a part that runs only sometimes (GetPatternVariableBlock), it has its C# name: a
+      // temporary's name is given back when its block ends, and a later one would hide it.
+      var block = GetPatternVariableBlock(pattern);
+      LuaIdentifierNameSyntax local;
+      if (block == CurBlock) {
+        local = GetTempIdentifier();
+        AddLocalVariableMapping(local, single);
+      } else {
+        local = single.Accept<LuaIdentifierNameSyntax>(this);
+      }
+      block.AddStatement(new LuaLocalVariableDeclaratorSyntax(local));
       AddBehindPatternChecks(local.Assignment(target));
     }
 

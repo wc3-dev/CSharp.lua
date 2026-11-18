@@ -2783,7 +2783,8 @@ namespace CSharpLua {
 
       var curBlock = CurBlockOrNull;
       if (curBlock != null) {
-        var statement = curBlock.Statements.FindLast(i => i is not LuaBlankLinesStatement && i is not LuaCommentStatement);
+        // Not a line mark (/*[[--@mw 3:12]]*/), which is a comment in Lua: a `;` on it is part of the comment.
+        var statement = curBlock.Statements.FindLast(i => !i.IsNoCode());
         if (statement != null) {
           statement.ForceSemicolon = true;
         }
