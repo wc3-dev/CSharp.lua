@@ -15,6 +15,7 @@ limitations under the License.
 */
 
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics.Contracts;
 using System.IO;
@@ -642,9 +643,15 @@ namespace CSharpLua {
       return metaInfo;
     }
 
+    // A method's answer never changes, and it is slow to work out: it looks through every member of every interface of the
+    // method's type, and member naming asks for each member of a type and its bases every time it names one.
+    private readonly ConcurrentDictionary<ISymbol, string>[] methodMetaInfos_ = {
+      new(SymbolEqualityComparer.Default), new(SymbolEqualityComparer.Default), new(SymbolEqualityComparer.Default),
+    };
+
     private string GetMethodMetaInfo(IMethodSymbol symbol, MethodMetaType metaType) {
       Utility.CheckMethodDefinition(ref symbol);
-      return GetInternalMethodMetaInfo(symbol, metaType);
+      return methodMetaInfos_[(int)metaType].GetOrAdd(symbol, method => GetInternalMethodMetaInfo((IMethodSymbol)method, metaType));
     }
 
     public string GetMethodMapName(IMethodSymbol symbol) {
