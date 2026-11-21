@@ -2313,8 +2313,9 @@ namespace CSharpLua {
         }
       }
       
-      var typeSymbol = semanticModel_.GetTypeInfo(node).Type;
-      return BuildValueTupleCreateExpression(typeSymbol, expressions);
+      // a tuple holding a lambda or method group has no type of its own, only the one it converts to
+      var typeInfo = semanticModel_.GetTypeInfo(node);
+      return BuildValueTupleCreateExpression(typeInfo.Type ?? typeInfo.ConvertedType, expressions);
     }
 
     public override LuaSyntaxNode VisitParenthesizedVariableDesignation(ParenthesizedVariableDesignationSyntax node) {
