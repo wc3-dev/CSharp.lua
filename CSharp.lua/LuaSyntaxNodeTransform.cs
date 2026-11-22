@@ -4673,11 +4673,11 @@ namespace CSharpLua {
     private LuaExpressionSyntax WrapStringConcatExpression(ExpressionSyntax expression, LuaExpressionSyntax format = null, LuaExpressionSyntax alignment = null) {
       ITypeSymbol typeInfo = semanticModel_.GetTypeInfo(expression).Type;
       var original = expression.AcceptExpression(this);
-      // Lua's .. binds tighter than its comparisons, logic and bitwise operators, so a hole such as {a & b} keeps its brackets.
-      if (original is LuaBinaryExpressionSyntax { OperatorToken: not (LuaSyntaxNode.Tokens.Plus or LuaSyntaxNode.Tokens.Sub or LuaSyntaxNode.Tokens.Multiply or LuaSyntaxNode.Tokens.Div
-          or LuaSyntaxNode.Tokens.IntegerDiv or LuaSyntaxNode.Tokens.Mod or LuaSyntaxNode.Tokens.Concatenation or "^") }) {
-        original = original.Parenthesized();
-      }
+      // Lua's .. binds tighter than its comparisons, logic and bitwise operators, so a hole such as {a & b} used bare, or with
+      // a method called on it, keeps its brackets. One given to a call as an argument needs none.
+      var bare = original is LuaBinaryExpressionSyntax { OperatorToken: not (LuaSyntaxNode.Tokens.Plus or LuaSyntaxNode.Tokens.Sub
+          or LuaSyntaxNode.Tokens.Multiply or LuaSyntaxNode.Tokens.Div or LuaSyntaxNode.Tokens.IntegerDiv or LuaSyntaxNode.Tokens.Mod
+          or LuaSyntaxNode.Tokens.Concatenation or "^") } ? original.Parenthesized() : original;
       switch (typeInfo.SpecialType) {
         case SpecialType.System_String: {
             if ((IsPreventDebug 
@@ -4686,7 +4686,7 @@ namespace CSharpLua {
               return FormatAlignment(original, null, alignment);
             }
 
-            return original;
+            return bare;
         }
         case SpecialType.System_Char: {
           var constValue = semanticModel_.GetConstantValue(expression);
@@ -4700,7 +4700,7 @@ namespace CSharpLua {
           if (IsPreventDebug || alignment != null) {
              return FormatAlignment(original, null, alignment);
           }
-          return original;
+          return bare;
         }
         case >= SpecialType.System_SByte and <= SpecialType.System_Double:
           if (format == null && alignment == null && typeInfo.IsDoubleOrFloatType(false)) {
@@ -4712,16 +4712,16 @@ namespace CSharpLua {
               return FormatAlignment(original, format, alignment);
             } else {
               if (alignment == null) {
-                if (original is LuaLiteralExpressionSyntax) {
-                  original = original.Parenthesized();
+                if (bare is LuaLiteralExpressionSyntax) {
+                  bare = bare.Parenthesized();
                 }
-                return original.MemberAccess(LuaIdentifierNameSyntax.ToStr, true).Invocation(format);
+                return bare.MemberAccess(LuaIdentifierNameSyntax.ToStr, true).Invocation(format);
               } else {
                 return FormatAlignment(original, format, alignment);
               }
             }
           }
-          return original;
+          return bare;
       }
 
       if (typeInfo.IsEnumType(out var enumTypeSymbol, out bool isNullable)) {
@@ -4737,10 +4737,10 @@ namespace CSharpLua {
         if (alignment == null) {
           var formatMethod = format != null ? GetFormatToStringMethod(typeInfo) : null;
           if (formatMethod != null) {
-            return BuildFormatToStringExpression(original, formatMethod, format);
+            return BuildFormatToStringExpression(bare, formatMethod, format);
           }
 
-          var invocation = original.MemberAccess(LuaIdentifierNameSyntax.ToStr, true).Invocation();
+          var invocation = bare.MemberAccess(LuaIdentifierNameSyntax.ToStr, true).Invocation();
           if (format != null) {
             invocation.AddArgument(format);
           }
