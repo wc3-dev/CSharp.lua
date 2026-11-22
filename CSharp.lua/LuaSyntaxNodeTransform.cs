@@ -4673,6 +4673,11 @@ namespace CSharpLua {
     private LuaExpressionSyntax WrapStringConcatExpression(ExpressionSyntax expression, LuaExpressionSyntax format = null, LuaExpressionSyntax alignment = null) {
       ITypeSymbol typeInfo = semanticModel_.GetTypeInfo(expression).Type;
       var original = expression.AcceptExpression(this);
+      // Lua's .. binds tighter than its comparisons, logic and bitwise operators, so a hole such as {a & b} keeps its brackets.
+      if (original is LuaBinaryExpressionSyntax { OperatorToken: not (LuaSyntaxNode.Tokens.Plus or LuaSyntaxNode.Tokens.Sub or LuaSyntaxNode.Tokens.Multiply or LuaSyntaxNode.Tokens.Div
+          or LuaSyntaxNode.Tokens.IntegerDiv or LuaSyntaxNode.Tokens.Mod or LuaSyntaxNode.Tokens.Concatenation or "^") }) {
+        original = original.Parenthesized();
+      }
       switch (typeInfo.SpecialType) {
         case SpecialType.System_String: {
             if ((IsPreventDebug 
