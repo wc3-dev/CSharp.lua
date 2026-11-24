@@ -199,7 +199,8 @@ namespace CSharpLua.LuaAst {
 
     public override string Text {
       get {
-        var text = number_.ToString("G9", CultureInfo.InvariantCulture);
+        // The shortest text that reads back as this float (0.6f as 0.6, not 0.600000024), as its literal is written.
+        var text = number_.ToString("R", CultureInfo.InvariantCulture);
         return isFloatType_ ? WithPoint(text) : text;
       }
     }
@@ -217,7 +218,8 @@ namespace CSharpLua.LuaAst {
 
     public override string Text {
       get {
-        var text = Number.ToString("G17", CultureInfo.InvariantCulture);
+        // The shortest text that reads back as this double (0.1, not 0.10000000000000001), as its literal is written.
+        var text = Number.ToString("R", CultureInfo.InvariantCulture);
         return isFloatType_ ? WithPoint(text) : text;
       }
     }
