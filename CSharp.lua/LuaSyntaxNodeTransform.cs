@@ -2984,6 +2984,16 @@ namespace CSharpLua {
           if (symbol.IsExtensionMethod) {
             var typeName = GetTypeName(symbol.ContainingType);
             name = typeName.MemberAccess(name);
+          } else if (!symbol.IsStatic && !IsRepeatableTarget(expression)) {
+            // System.fn(Make(), Make().Tick) would run Make() twice: bind the target once, (function (t) return System.fn(t, t.Tick) end)(Make())
+            var function = new LuaFunctionExpressionSyntax();
+            PushFunction(function);
+            var temp = GetTempIdentifier();
+            function.AddParameter(temp);
+            function.AddStatement(new LuaReturnStatementSyntax(BuildDelegateNameExpression(symbol, temp, temp.MemberAccess(name), node)));
+            PopFunction();
+            delegateExpression = new LuaInvocationExpressionSyntax(new LuaParenthesizedExpressionSyntax(function), expression);
+            return true;
           } else {
             name = expression.MemberAccess(name);
           }
@@ -2998,6 +3008,16 @@ namespace CSharpLua {
       }
       delegateExpression = null;
       return false;
+    }
+
+    /// <summary>A name or a chain of field reads, which can be written twice with no side effect.</summary>
+    private static bool IsRepeatableTarget(LuaExpressionSyntax expression) {
+      return expression switch {
+        LuaSymbolNameSyntax symbolName => symbolName.NameExpression is null || IsRepeatableTarget(symbolName.NameExpression),
+        LuaIdentifierNameSyntax => true,
+        LuaMemberAccessExpressionSyntax memberAccess => !memberAccess.IsObjectColon && IsRepeatableTarget(memberAccess.Expression),
+        _ => false,
+      };
     }
 
     private static bool IsDelegateInvoke(ISymbol symbol, SimpleNameSyntax name) {
